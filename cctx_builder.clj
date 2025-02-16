@@ -39,12 +39,14 @@
 (def cli-opts
   {:coerce {:template :keyword
             :template-version :string
-            :project :string}  ; Changed from :keyword to :string
+            :project :string
+            :overwrite-existing :boolean}
    :require [:template :template-version :projects :project]
    :spec {:template {:desc "Template to use"}
           :template-version {:desc "Template version"}
           :projects {:desc "Path to projects config file"}
-          :project {:desc "Project name from config"}}})
+          :project {:desc "Project name from config"}
+          :overwrite-existing {:desc "Delete existing CCTX if it exists"}}})
 
 (defn find-templates-dir [project-config version]
   (let [project-root (:project-root project-config)
@@ -110,7 +112,45 @@
 (defn kebab->snake [s]
   (str/replace s "-" "_"))
 
-(defn create-cctx! [cctx-name {:keys [template template-version project projects] :as opts}]
+(defn delete-directory-recursive
+  "Recursively delete a directory."
+  [^java.io.File file]
+  (when (.exists file)
+    (when (.isDirectory file)
+      (doseq [child-file (.listFiles file)]
+        (delete-directory-recursive child-file)))
+    (.delete file)))
+
+(def transactor-template
+  "(defn transact-change [change]
+  (case (:type change)
+    :edit (println \"Edit not implemented yet\")
+    :script (when (:executable change)
+             (-> (Runtime/getRuntime)
+                 (.exec (into-array String 
+                         [(str project-root \"/\" (:path change))]))))
+    :add-file (let [file-path (str project-root \"/\" (:path change))
+                   file (io/file file-path)]
+               (.mkdirs (.getParentFile file))
+               (spit file (:template change))
+               (when (:executable change)
+                 (.setExecutable file true)))
+    :transform (when-let [transform-fn (:transform change)]
+                (transform-fn))
+    (throw (ex-info \"Unknown change type\" {:change change}))))
+
+(defn dry-run? []
+  (:dry-run change-spec))
+
+(defn validate-and-transact! []
+  (validate-project-root!)
+  (if (dry-run?)
+    (doseq [change (:changes change-spec)]
+      (println \"Would transact:\" (pr-str change)))
+    (doseq [change (:changes change-spec)]
+      (transact-change change))))")
+
+(defn create-cctx! [cctx-name {:keys [template template-version project projects overwrite-existing] :as opts}]
   (let [project-config (load-project-config projects project)
         template-data (load-template project-config template template-version)
         snake-name (kebab->snake cctx-name)
@@ -118,12 +158,15 @@
                          (:cctxs-dir project-config)
                          snake-name)]
     (when (.exists cctx-dir)
-      (throw (ex-info "CCTX already exists"
-                     {:cctx-name cctx-name
-                      :cctx-dir (.getPath cctx-dir)})))
+      (if overwrite-existing
+        (delete-directory-recursive cctx-dir)
+        (throw (ex-info "CCTX already exists"
+                       {:cctx-name cctx-name
+                        :cctx-dir (.getPath cctx-dir)}))))
     (.mkdirs cctx-dir)
     (spit (io/file cctx-dir "cctx.clj")
-          (str "(ns dev.cctx.cctxs." cctx-name ".cctx)\n\n"
+          (str "(ns dev.cctx.cctxs." cctx-name ".cctx\n"
+               "  (:require [clojure.java.io :as io]))\n\n"
                "(def project-root \"" (:project-root project-config) "\")\n\n"
                "(defn validate-project-root!\n"
                "  \"Validates that PROJECT_ROOT matches the project root where this CCTX was created.\"\n"
@@ -137,11 +180,18 @@
                "                       :actual env-root})))))\n\n"
                "(def change-spec\n"
                (pr-str (assoc (:spec template-data) :title cctx-name))
-               ")\n"))))
+               ")\n\n"
+               transactor-template
+               "\n"))))
 
 (defn -main [& args]
   (if (< (count args) 1)
-    (println "Usage: cctx_builder.clj <name> --template <template> --template-version <version> --projects <config-file> --project <project-name>")
+    (println "Usage: cctx_builder.clj <name> 
+              --template <template> 
+              --template-version <version> 
+              --projects <config-file> 
+              --project <project-name> 
+              --overwrite-existing")
     (let [opts (cli/parse-opts args cli-opts)
           name (first args)]
       (create-cctx! name opts))))
