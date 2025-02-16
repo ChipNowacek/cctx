@@ -143,7 +143,7 @@
   (:dry-run change-spec))
 
 (defn validate-and-transact! []
-  (validate-project-root!)
+  (validate-project-root)
   (if (dry-run?)
     (doseq [change (:changes change-spec)]
       (println \"Would transact:\" (pr-str change)))
@@ -168,7 +168,7 @@
           (str "(ns dev.cctx.cctxs." cctx-name ".cctx\n"
                "  (:require [clojure.java.io :as io]))\n\n"
                "(def project-root \"" (:project-root project-config) "\")\n\n"
-               "(defn validate-project-root!\n"
+               "(defn validate-project-root\n"
                "  \"Validates that PROJECT_ROOT matches the project root where this CCTX was created.\"\n"
                "  []\n"
                "  (let [env-root (System/getenv \"PROJECT_ROOT\")]\n"
