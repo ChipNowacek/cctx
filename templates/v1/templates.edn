@@ -42,4 +42,12 @@
                    :executable true}]
          :requires []
          :rollback true
+         :dry-run true}}
+
+ :no-op
+ {:name "No Change"
+  :desc "Template that explicitly does nothing (useful for testing)"
+  :spec {:title "No Change"
+         :description "This change does nothing"
+         :changes []
          :dry-run true}}}
