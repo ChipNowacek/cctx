@@ -1,0 +1,9 @@
+ {:projects
+ {:name "ProjectName" ; This is the name of the project (case-sensitive)
+  :project-root "/path/to/project/root"
+  :cctx-dir "path/to/cctx/dir/relative/to/project-root" ; Directory where project-based cctx configuration is stored (currently there isn't any)
+  :cctxs-dir "path/to/cctxs/dir/relative/to/project-root" ; Directory where cctxs are created
+  ; Project templates are searched first then the "templates" directory in the builder's current directory
+  :project-has-templates true|false
+  :project-templates-dir "path/to/templates/dir/relative/to/project-root" 
+  }}

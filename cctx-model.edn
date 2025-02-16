@@ -24,7 +24,18 @@
    :prompt-md ""
    :response-md ""}]}
 :conversation
-[{:date "2025-02-14T12:34:25-06:00" :author "Chip" :audience "Claude 3.5 Sonnet (Preview)" :audience-key :ai-ide
+[{:date "2025-02-16T07:29:02-06:00" :author "Chip" :audience "Claude 3.5 Sonnet (Preview)" :audience-key :ai-ide :confidential-audience nil :confidential-author nil
+ :md ""
+ :prompt-md "This code has been moved out of the project in which it was created to allow for independent development — or execution. As a consequence it needs to read project information from a config file the name of which is specified on the command line with a `--projects` option. The config file is a simple edn file with the following structure:
+             ```edn
+              {:projects
+                {:name Catalyst
+                  :project-root \"/path/to/project/root \"
+                  :cctxs-dir \"/path/to/cctxs/dir \"}}
+             ```
+             The project from the projects file is specified on the command line with a `--project` option. The project name is used to find the project information in the projects file. The project information is used to find the project root and cctxs directory. The cctxs directory is where the cctxs are created. Please modify the code to read the project information from the projects file instead of from the environment."
+ :response-md ""}
+ {:date "2025-02-14T12:34:25-06:00" :author "Chip" :audience "Claude 3.5 Sonnet (Preview)" :audience-key :ai-ide
   :md ""
   :prompt-md "I need a `cctx_builder.clj` babashka script that creates a new cctx. The script will reside in $PROJECT_ROOT/dev/cctx with the new cctx to be created in $PROJECT_ROOT/dev/cctx/cctxs. This builder, for it's purposes, is similar to `git init` and `deps-new` in that they offer different templates — though I don't yet know enough about types of cctx to be useful. Do not take `cctx-model.edn` or `cctx_schema.clj` as well-considered structure. They are a beginning. I have attached a sample `cctx.clj` file that is a proof of concept. It too is a guide, not a final structure. I can imagine a builder using separate source files to build a cctx.
               As a working test case, I want to create a new cctx called a_new_code_scrubber. The cctx will add a development script that can be run to clean up the codebase by deleting superfluous empty keys. So the cctx builder's job is to facilitate the creation of a new cctx with the following structure:
