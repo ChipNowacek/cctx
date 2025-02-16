@@ -1,0 +1,46 @@
+; filepath: /home/chip/Documents/Catalyst/catalyst/dev/cctx/templates/v1/cctx-templates.edn
+{:basic
+ {:name "Basic Change"
+  :desc "Simple change with no predefined actions"
+  :spec {:title ""
+         :description ""
+         :changes []}}
+ 
+ :transformer
+ {:name "Transformer Change"
+  :desc "Change that transforms data with validation"
+  :spec {:title ""
+         :description ""
+         :changes [{:id :transform
+                   :type :transform
+                   :description ""
+                   :transform nil
+                   :validation nil}]}}
+ 
+ :script
+ {:name "Add Script"
+  :desc "Adds a new executable script to dev/scripts"
+  :spec {:title ""
+         :description ""
+         :changes [{:id :add-script
+                   :type :add-file
+                   :path "dev/scripts"
+                   :template "#!/usr/bin/env bash\n\n# Description: {{description}}\n\nset -euo pipefail\n\n# Script logic here\n"
+                   :executable true}]
+         :requires []
+         :rollback true
+         :dry-run true}}
+ 
+ :bb-script
+ {:name "Add Babashka Script"
+  :desc "Adds a new Babashka script to dev/scripts"
+  :spec {:title ""
+         :description ""
+         :changes [{:id :add-bb-script
+                   :type :add-file
+                   :path "dev/scripts"
+                   :template "#!/usr/bin/env bb\n\n;; Description: {{description}}\n\n(ns script\n  (:require [clojure.string :as str]\n            [clojure.java.io :as io]))\n\n(defn -main [& args]\n  ;; Script logic here\n  )\n\n(when (= *file* (System/getProperty \"babashka.file\"))\n  (apply -main *command-line-args*))\n"
+                   :executable true}]
+         :requires []
+         :rollback true
+         :dry-run true}}}

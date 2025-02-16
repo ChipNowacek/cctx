@@ -1,0 +1,90 @@
+{:version "1"
+ :spec {:required-keys [:version :title :description :changes]
+        :optional-keys [:author :date :dependencies :preconditions :postconditions
+                        :requires :rollback :dry-run :conversation]
+        :changes {:types [:remove-path :transform :add-path :replace]
+                  :required-keys [:id :type :description]
+                  :optional-keys [:path :transform :validation :subtasks]
+                  :subtasks {:required-keys [:id :description]
+                             :optional-keys [:validation :transform]}}
+        :validations {:must-exist [:requires]
+                      :must-be-boolean [:rollback :dry-run]
+                      :must-be-vector [:changes :requires]}}
+ :questions
+ [{:date "2025-02-14T10:52:26-06:00" :author "Chip" :audience "" :audience-key nil
+   :md "What is the nature of AI support required?"
+   :prompt-md ""
+   :response-md ""}
+  {:date "2025-02-14T10:49:54-06:00" :author "Chip" :audience "" :audience-key nil
+   :md "Do transformers have unique paths or a unique id?"
+   :prompt-md ""
+   :response-md ""}
+  {:date "2025-02-14T10:47:03-06:00" :author "Chip" :audience "" :audience-key nil
+   :md "What are the characteristics of transactionable code?"
+   :prompt-md ""
+   :response-md ""}]}
+:conversation
+[{:date "2025-02-14T12:34:25-06:00" :author "Chip" :audience "Claude 3.5 Sonnet (Preview)" :audience-key :ai-ide
+  :md ""
+  :prompt-md "I need a `cctx_builder.clj` babashka script that creates a new cctx. The script will reside in $PROJECT_ROOT/dev/cctx with the new cctx to be created in $PROJECT_ROOT/dev/cctx/cctxs. This builder, for it's purposes, is similar to `git init` and `deps-new` in that they offer different templates — though I don't yet know enough about types of cctx to be useful. Do not take `cctx-model.edn` or `cctx_schema.clj` as well-considered structure. They are a beginning. I have attached a sample `cctx.clj` file that is a proof of concept. It too is a guide, not a final structure. I can imagine a builder using separate source files to build a cctx.
+              As a working test case, I want to create a new cctx called a_new_code_scrubber. The cctx will add a development script that can be run to clean up the codebase by deleting superfluous empty keys. So the cctx builder's job is to facilitate the creation of a new cctx with the following structure:
+              ```
+              {:version \"1\"
+               :title \"A New Code Scrubber\"
+               :description \"A code scrubber that removes empty keys from the codebase.\"
+               :changes [{:id :remove-empty-keys
+                          :type :remove-path
+                          :description \"Remove empty keys from the codebase.\"
+                          :path [[:vector :map :keyword]]}]
+               :requires [\"babashka\"]
+               :rollback true
+               :dry-run true}
+              ```
+              To be *very* clear, I'm not asking for the cctx itself to be created. I'm asking for a script that creates a new cctx. The cctx itself will be created by running the builder."
+  :response-md ""}
+ {:date "2025-02-14T12:06:02-06:00" :author "Chip" :audience "<confidential>" :audience-key :person :confidential-audience true :confidential-author nil
+  :md "Hey again. I hope this finds you well.
+  I've hit a spot in my work that brought your work to mind.
+  I've finally grown out of no-/low-code and have a Clojure/Datomic-based project (back to solo full-stack). The codebase is significant enough (for very inexperienced me) to be experiencing change anxiety. I've caught myself wishing changes to my codebase could be done as transactions. Of course, git is required for survival. git, however, is about code management. I need something that helps with mental branching and committing.
+  I'm starting a sub-project to support my primary work. I'm calling it cctx, short for \"codebase change transaction\". Thinking transactionally is helping.
+  Why am I interrupting your busy life with this?
+  Beyond your perpetual support—which has already meant so much—there are aspects of cctx that remind me of <confidential>.  Specifically, creating a new cctx is essentially creating a mini project. I will be learning from your work as I go.
+  So…
+  Thanks for listening and your support in general. It's nice to be able to touch base with someone I consider a pillar of a community that is so important to me.
+  12:09
+  Of course, cctx could turn out to be just another bad idea. Frankly, the only thing worse than cctx is not having something like it. If you know of a facility that serves such a purpose, I'd appreciate the tip."
+  :prompt-md ""
+  :response-md "<confidential>
+    12:19 PM
+  Hi Chip! I saw you'd come back to being active in the community!
+  I guess my first thought would be git branches, so you can work at will on a branch, and then either throw it away or merge it to the main branch -- the merge being the \"change transaction\" in my mind...
+  ...but if you're more focused on creating \"scratch\" subprojects to explore ideas, I wonder if Polylith would help? Each new mini project would be a base in Polylith language, with a project if you need to actually \"build\" something from it. Polylith has the advantage that you can have a single REPL across the entire codebase and still treat each \"sub project\" independently (from a build/deploy) p.o.v.
+
+
+  Chip
+    12:30 PM
+  :grinning:
+  Yes, each cctx will reside in a git branch with the merge as the ultimate objective. I am working on language to specify a cctx.
+  I have heard you speak well of Polylith in that past. I'm headed over there now to become better acquainted with its facility. Malli is also playing an early role.
+  Between you and me, I hope I abandon this cctx thing. Shiny new things are a young man's fascination.
+  Thanks again.
+  The very best to you and yours.
+
+    12:37 PM
+  I suspect that most of the things we \"invent\" have already been invented with a different name... :slightly_smiling_face:"}
+ {:date "2025-02-14T11:06:46-06:00" :author "Chip" :audience "" :audience-key nil
+  :md "The added `:questions` maps captures the questions that need to be asked about cctx projects."
+  :prompt-md ""
+  :response-md ""}
+ {:date "2025-02-14T11:02:06-06:00" :author "Chip" :audience "" :audience-key nil
+  :md "The jury is still out on the sanity of this work. At the moment, the only thing worse than pushing cctx forward is not pushing cctx forward."
+  :prompt-md ""
+  :response-md ""}
+ {:date "2025-02-13T23:19:21-06:00" :author "Chip" :audience "" :audience-key nil
+  :md "I'd rather get not have to think about all of this and just do it. Duh"
+  :prompt-md ""
+  :response-md ""}
+ {:date "2025-02-13T21:23:48-06:00" :author "Chip" :audience "" :audience-key nil
+  :md "I don't really want another project — and I can't build Catalyst if it completely takes over my life. For me, CCTX represents an opportunity to get Two Stewards moved along."
+  :prompt-md ""
+  :response-md ""}]
