@@ -117,9 +117,24 @@
         cctx-dir (io/file (:project-root project-config) 
                          (:cctxs-dir project-config)
                          snake-name)]
+    (when (.exists cctx-dir)
+      (throw (ex-info "CCTX already exists"
+                     {:cctx-name cctx-name
+                      :cctx-dir (.getPath cctx-dir)})))
     (.mkdirs cctx-dir)
     (spit (io/file cctx-dir "cctx.clj")
           (str "(ns dev.cctx.cctxs." cctx-name ".cctx)\n\n"
+               "(def project-root \"" (:project-root project-config) "\")\n\n"
+               "(defn validate-project-root!\n"
+               "  \"Validates that PROJECT_ROOT matches the project root where this CCTX was created.\"\n"
+               "  []\n"
+               "  (let [env-root (System/getenv \"PROJECT_ROOT\")]\n"
+               "    (when-not env-root\n"
+               "      (throw (ex-info \"PROJECT_ROOT environment variable must be set\" {})))\n"
+               "    (when-not (= env-root project-root)\n"
+               "      (throw (ex-info \"PROJECT_ROOT does not match CCTX project root\"\n"
+               "                      {:expected project-root\n"
+               "                       :actual env-root})))))\n\n"
                "(def change-spec\n"
                (pr-str (assoc (:spec template-data) :title cctx-name))
                ")\n"))))
