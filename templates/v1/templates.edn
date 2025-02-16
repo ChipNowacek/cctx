@@ -1,4 +1,3 @@
-; filepath: /home/chip/Documents/Catalyst/catalyst/dev/cctx/templates/v1/cctx-templates.edn
 {:basic
  {:name "Basic Change"
   :desc "Simple change with no predefined actions"

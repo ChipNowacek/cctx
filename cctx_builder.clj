@@ -91,7 +91,7 @@
                      {:version version
                       :valid-versions valid-versions}))
       (let [templates-dir (find-templates-dir project-config version)
-            template-file (io/file templates-dir "cctx-templates.edn")
+            template-file (io/file templates-dir "templates.edn")  ; Changed from cctx-templates.edn
             validate-templates (load-template-schema templates-dir version)]
         (if (.exists template-file)
           (let [templates (-> template-file slurp edn/read-string)]
