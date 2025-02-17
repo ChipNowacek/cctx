@@ -24,7 +24,11 @@
    :prompt-md ""
    :response-md ""}]}
 :conversation
-[{:date "2025-02-17T14:39:47-06:00" :author "Chip" :audience "Claude 3.5 Sonnet (Preview)" :audience-key :ai-ide :confidential-author nil
+[{:date "2025-02-17T15:54:07-06:00" :author "Chip" :audience "" :audience-key :repo-devs :confidential-audience nil :confidential-author nil
+ :md "Just for the record, this very easily could turn out to be too brittle to be useful. Obviously, the nature of changes to a codebase are usually not simple. What keeps me going is knowing that just a prose description of a change is better than no articulation at all. With the advent of AI support, there are more possibilities than just changes that can be automated with code alone. Also, having correlated `git` automation will likely be helpful."
+ :prompt-md ""
+ :response-md ""}
+{:date "2025-02-17T14:39:47-06:00" :author "Chip" :audience "Claude 3.5 Sonnet (Preview)" :audience-key :ai-ide :confidential-author nil
  :md ""
  :prompt-md "I got lost in that last attempt. Let's back up. Before we attempt to implement rollback, I think we have to simplify our cctx builder iteration process. I have attached a valid generated cctx file. Starting very slowly with one replacement, what function code or placehoder can I put in the namespace that would allow the builder to take this file in one slurp, make the substitution, and generate an identical cctx with just the namespace changed? Please don't change the builder yet. I just want to play with the cctx file right now. Feel free to change the example cctx.clj file — only a little at a time though please."
  :response-md ""}
