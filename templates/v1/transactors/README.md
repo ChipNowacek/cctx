@@ -1,0 +1,1 @@
+We are not using transactor templates yet. Not sure if we ever will.

@@ -26,7 +26,7 @@
 :conversation
 [{:date "2025-02-17T09:13:01-06:00" :author "Chip" :audience "Claude 3.5 Sonnet (Preview)" :audience-key :ai-ide :confidential-author nil
  :md "CCTX may just be a bridge too far. Let's see."
- :prompt-md "Thank you for the option — and that is a lot of static text to manage. We have a lot to do to get the cctx templates implemented. For now, let's see if we can just modify the builder directly. Up to it?"
+ :prompt-md "Thank you for the option — and that is a lot of static text to manage. We have a lot to do to get the cctx templates implemented. For now, let's see if we can just modify `create-cctx!` directly. I have highlighted the code that needs to be used for the revision. Up to it?"
  :response-md ""}
  {:date "2025-02-17T08:19:07-06:00" :author "Chip" :audience "Claude 3.5 Sonnet (Preview)" :audience-key :ai-ide :confidential-author nil
  :md "Let's see how this goes"
