@@ -6,7 +6,8 @@
             [clojure.java.io :as io]
             [clojure.edn :as edn]
             [malli.core :as m]
-            [malli.error :as me]))
+            [malli.error :as me]
+            [clojure.java.shell :as shell]))
 
 (def projects-schema
   [:map

@@ -1,6 +1,7 @@
 (ns {{namespace}}
   (:require [clojure.java.io :as io]
-            [babashka.process :refer [shell]]))
+            [clojure.string :as str]
+            [clojure.java.shell :refer [sh]]))
 
 (def project-root "{{project-root}}")
 
@@ -48,12 +49,12 @@
   (:dry-run change-spec))
 
 (defn git-status-clean? []
-  (let [{:keys [exit out err]} (shell {:out :string :err :string} "git status --porcelain")]
+  (let [{:keys [exit out err]} (sh "git" "status" "--porcelain")]
     (empty? out)))
 
 (defn create-rollback-script []
   (let [cctx-name (last (str/split (str *ns*) #"\."))
-        current-branch (:out (shell {:out :string} "git rev-parse --abbrev-ref HEAD"))
+        current-branch (:out (sh "git" "rev-parse" "--abbrev-ref" "HEAD"))
         rollback-script (str "rollback_" cctx-name ".sh")
         script-content (str "#!/bin/bash\n"
                             "git checkout " current-branch "\n"
@@ -63,10 +64,10 @@
     rollback-script))
 
 (defn create-and-switch-branch [branch-name]
-  (shell "git checkout -b" branch-name))
+  (sh "git" "checkout" "-b" branch-name))
 
 (defn run-rollback-script [script-name]
-  (shell script-name))
+  (sh "bash" script-name))
 
 (defn validate-and-transact! []
   (validate-project-root)
