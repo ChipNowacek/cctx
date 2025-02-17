@@ -54,17 +54,24 @@
 
 (defn create-rollback-script []
   (let [cctx-name (last (str/split (str *ns*) #"\."))
-        current-branch (:out (sh "git" "rev-parse" "--abbrev-ref" "HEAD"))
-        rollback-script (str "rollback_" cctx-name ".sh")
-        script-content (str "#!/bin/bash\n"
-                            "git checkout " current-branch "\n"
-                            "git branch -D " cctx-name "\n")]
-    (spit rollback-script script-content)
-    (.setExecutable (io/file rollback-script) true)
-    rollback-script))
+        current-branch (:out (sh "git" "rev-parse" "--abbrev-ref" "HEAD"))]
+    (when (str/blank? current-branch)
+      (throw (ex-info "Unable to determine current branch. CCTX cannot proceed without rollback capability." 
+                      {:cctx-name cctx-name})))
+    (let [rollback-script (str (System/getProperty "user.dir") "/rollback_" cctx-name ".sh")
+          script-content (str "#!/bin/bash\n"
+                              "git checkout " current-branch "\n"
+                              "git branch -D " cctx-name "\n")]
+      (spit rollback-script script-content)
+      (.setExecutable (io/file rollback-script) true)
+      rollback-script)))
 
 (defn create-and-switch-branch [branch-name]
-  (sh "git" "checkout" "-b" branch-name))
+  (let [{:keys [exit out err]} (sh "git" "checkout" "-b" branch-name)]
+    (when-not (zero? exit)
+      (throw (ex-info "Failed to create and switch to new branch" 
+                      {:branch branch-name :err err})))
+    (println "Created and switched to new branch:" branch-name)))
 
 (defn run-rollback-script [script-name]
   (sh "bash" script-name))
@@ -74,11 +81,14 @@
   (if-not (git-status-clean?)
     (throw (ex-info "Git working tree is not clean. Please commit or stash changes before proceeding." {}))
     (let [cctx-name (last (str/split (str *ns*) #"\."))
-          rollback-script (create-rollback-script)]
+          rollback-script (try
+                            (create-rollback-script)
+                            (catch Exception e
+                              (println "Error creating rollback script:" (.getMessage e))
+                              (throw (ex-info "CCTX cannot proceed without rollback capability" {:cause e}))))]
       (println "Rollback script created:" rollback-script)
       (try
-        (create-and-switch-branch cctx-name)
-        (println "Switched to new branch:" cctx-name)
+        (create-and-switch-branch(cctx-name))
         (println (str "Description: " (:description change-spec)))  
         (println (str "Change spec: " (:changes change-spec)))
         (if (dry-run?)
