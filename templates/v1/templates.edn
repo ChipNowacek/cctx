@@ -50,4 +50,5 @@
   :spec {:title "No Change"
          :description "This change does nothing"
          :changes []
+         :rollback true
          :dry-run true}}}

@@ -121,78 +121,25 @@
         (delete-directory-recursive child-file)))
     (.delete file)))
 
-(def transactor-template
-  "(defn transact-change [change]
-  (case (:type change)
-    :edit (println \"Edit not implemented yet\")
-    :script (when (:executable change)
-             (-> (Runtime/getRuntime)
-                 (.exec (into-array String 
-                         [(str project-root \"/\" (:path change))]))))
-    :add-file (let [file-path (str project-root \"/\" (:path change))
-                   file (io/file file-path)]
-               (.mkdirs (.getParentFile file))
-               (spit file (:template change))
-               (when (:executable change)
-                 (.setExecutable file true)))
-    :transform (when-let [transform-fn (:transform change)]
-                (transform-fn))
-    (throw (ex-info \"Unknown change type\" {:change change}))))
-
-(defn dry-run? []
-  (:dry-run change-spec))
-
-(defn validate-and-transact! []
-  (validate-project-root)
-  (println (str \"Description: \" (:description change-spec)))  
-  (println (str \"Change spec: \" (:changes change-spec)))  
-  (if (dry-run?)
-    (doseq [change (:changes change-spec)]
-      (println \"Would transact:\" (pr-str change)))
-    (doseq [change (:changes change-spec)]
-      (transact-change change))))")
-
-(def dev-comment-template
-  "\n\n(comment
-  ;; Example REPL usage
-  
-  (validate-project-root)
-  
-  ;; Test dry run
-  (validate-and-transact!)
-  
-  ;; Run specific changes
-  (transact-change (first (:changes change-spec)))
-  
-  ;; Development scratch pad
-  
-  ,)")
-
-(def comments-template
-  "\n\n;; Comments and Development Notes
-;; ============================
-;; Creation Date: %s
-;; Template: %s (version %s)
-;;
-;; Implementation Notes:
-;; -------------------
-;; 
-;; Testing Notes:
-;; ------------
-;; 
-;; Outstanding Issues:
-;; -----(set-project-root! \"/path/to/project\")------------
-;; ")
-
-
-
 (defn create-cctx! [cctx-name {:keys [template template-version project projects overwrite-existing] :as opts}]
   (let [project-config (load-project-config projects project)
         template-data (load-template project-config template template-version)
         snake-name (kebab->snake cctx-name)
         cctx-dir (io/file (:project-root project-config)
                           (:cctxs-dir project-config)
-                          snake-name)]
+                          snake-name)
+        cctx-template-path (str "templates/" template-version "/cctx_templates/cctx.clj")
+        cctx-template (slurp (io/file cctx-template-path))
+        spec (:spec template-data)
+        cctx-content (-> cctx-template
+                         (str/replace "{{namespace}}" (str "dev.cctx.cctxs." cctx-name ".cctx"))
+                         (str/replace "{{project-root}}" (:project-root project-config))
+                         (str/replace "{{title}}" (:title spec))
+                         (str/replace "{{description}}" (:description spec))
+                         (str/replace "{{changes}}" (pr-str (:changes spec)))
+                         (str/replace "{{dry-run}}" (str (:dry-run spec)))
+                         (str/replace "{{rollback}}" (str (:rollback spec false)))
+                         (str/replace "{{requires}}" (pr-str (:requires spec []))))]
     (when (.exists cctx-dir)
       (if overwrite-existing
         (delete-directory-recursive cctx-dir)
@@ -200,33 +147,7 @@
                         {:cctx-name cctx-name
                          :cctx-dir (.getPath cctx-dir)}))))
     (.mkdirs cctx-dir)
-    (spit (io/file cctx-dir "cctx.clj")
-          (str "(ns dev.cctx.cctxs." cctx-name ".cctx\n"
-               "  (:require [clojure.java.io :as io]))\n\n"
-               "(def project-root \"" (:project-root project-config) "\")\n\n"
-               "(defn get-project-root []\n"
-               "  (System/getenv \"PROJECT_ROOT\"))\n\n"
-               "(defn validate-project-root\n"
-               "  \"Validates that PROJECT_ROOT matches the project root where this CCTX was created or is '/app'.\"\n"
-               "  []\n"
-               "  (let [env-root (get-project-root)]\n"
-               "    (when-not env-root\n"
-               "      (throw (ex-info \"PROJECT_ROOT environment variable must be set\" {})))\n"
-               "    (when-not (or (= env-root project-root)\n"
-               "                  (= env-root \"/app\"))\n"
-               "      (throw (ex-info \"PROJECT_ROOT does not match CCTX project root or '/app'\"\n"
-               "                      {:expected [project-root \"/app\"]\n"
-               "                       :actual env-root})))))\n\n"
-               "(def change-spec\n"
-               (pr-str (assoc (:spec template-data) :title cctx-name))
-               ")\n\n"
-               transactor-template
-               dev-comment-template
-               (format comments-template
-                       (.format (java.text.SimpleDateFormat. "yyyy-MM-dd HH:mm:ss")
-                                (java.util.Date.))
-                       (name template)
-                       template-version)))))
+    (spit (io/file cctx-dir "cctx.clj") cctx-content)))
 
 (defn -main [& args]
   (if (< (count args) 1)
