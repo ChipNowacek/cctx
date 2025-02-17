@@ -137,8 +137,8 @@
                          (str/replace "{{title}}" (:title spec))
                          (str/replace "{{description}}" (:description spec))
                          (str/replace "{{changes}}" (pr-str (:changes spec)))
-                         (str/replace "{{dry-run}}" (str (:dry-run spec)))
-                         (str/replace "{{rollback}}" (str (:rollback spec false)))
+                         (str/replace "{{dry-run}}" (str (:dry-run spec false)))
+                         (str/replace "{{rollback}}" (str (:rollback spec true)))
                          (str/replace "{{requires}}" (pr-str (:requires spec []))))]
     (when (.exists cctx-dir)
       (if overwrite-existing

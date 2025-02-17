@@ -1,5 +1,6 @@
 (ns {{namespace}}
-  (:require [clojure.java.io :as io]))
+  (:require [clojure.java.io :as io]
+            [babashka.process :refer [shell]]))
 
 (def project-root "{{project-root}}")
 
@@ -46,15 +47,57 @@
 (defn dry-run? []
   (:dry-run change-spec))
 
+(defn git-status-clean? []
+  (let [{:keys [exit out err]} (shell {:out :string :err :string} "git status --porcelain")]
+    (empty? out)))
+
+(defn create-rollback-script []
+  (let [cctx-name (last (str/split (str *ns*) #"\."))
+        current-branch (:out (shell {:out :string} "git rev-parse --abbrev-ref HEAD"))
+        rollback-script (str "rollback_" cctx-name ".sh")
+        script-content (str "#!/bin/bash\n"
+                            "git checkout " current-branch "\n"
+                            "git branch -D " cctx-name "\n")]
+    (spit rollback-script script-content)
+    (.setExecutable (io/file rollback-script) true)
+    rollback-script))
+
+(defn create-and-switch-branch [branch-name]
+  (shell "git checkout -b" branch-name))
+
+(defn run-rollback-script [script-name]
+  (shell script-name))
+
 (defn validate-and-transact! []
   (validate-project-root)
-  (println (str "Description: " (:description change-spec)))  
-  (println (str "Change spec: " (:changes change-spec)))  
-  (if (dry-run?)
-    (doseq [change (:changes change-spec)]
-      (println "Would transact:" (pr-str change)))
-    (doseq [change (:changes change-spec)]
-      (transact-change change))))
+  (if-not (git-status-clean?)
+    (throw (ex-info "Git working tree is not clean. Please commit or stash changes before proceeding." {}))
+    (let [cctx-name (last (str/split (str *ns*) #"\."))
+          rollback-script (create-rollback-script)]
+      (println "Rollback script created:" rollback-script)
+      (try
+        (create-and-switch-branch cctx-name)
+        (println "Switched to new branch:" cctx-name)
+        (println (str "Description: " (:description change-spec)))  
+        (println (str "Change spec: " (:changes change-spec)))
+        (if (dry-run?)
+          (doseq [change (:changes change-spec)]
+            (println "Would transact:" (pr-str change)))
+          (doseq [change (:changes change-spec)]
+            (transact-change change)))
+        (catch Exception e
+          (println "Error during transaction. Rolling back...")
+          (run-rollback-script rollback-script)
+          (throw (ex-info "Transaction failed and rolled back" {:cause e})))))))
+
+(defn rollback! []
+  (let [cctx-name (last (str/split (str *ns*) #"\."))
+        rollback-script (str "rollback_" cctx-name ".sh")]
+    (if (.exists (io/file rollback-script))
+      (do
+        (run-rollback-script rollback-script)
+        (println "Rollback completed successfully."))
+      (println "Rollback script not found. Manual rollback may be necessary."))))
 
 (comment
   ;; Example REPL usage
