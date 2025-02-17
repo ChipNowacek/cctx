@@ -1,0 +1,58 @@
+{:requires [clojure.java.io]
+ :functions
+ {:get-project-root
+  "(defn get-project-root []
+     (System/getenv \"PROJECT_ROOT\"))"
+
+  :validate-project-root
+  "(defn validate-project-root
+     \"Validates that PROJECT_ROOT matches the project root where this CCTX was created or is '/app'.\"
+     []
+     (let [env-root (get-project-root)]
+       (when-not env-root
+         (throw (ex-info \"PROJECT_ROOT environment variable must be set\" {})))
+       (when-not (or (= env-root project-root)
+                    (= env-root \"/app\"))
+         (throw (ex-info \"PROJECT_ROOT does not match CCTX project root or '/app'\"
+                        {:expected [project-root \"/app\"]
+                         :actual env-root})))))"
+
+  :transact-change
+  "(defn transact-change [change]
+     (case (:type change)
+       :edit (println \"Edit not implemented yet\")
+       :script (when (:executable change)
+                (-> (Runtime/getRuntime)
+                    (.exec (into-array String 
+                            [(str project-root \"/\" (:path change))]))))
+       :add-file (let [file-path (str project-root \"/\" (:path change))
+                      file (io/file file-path)]
+                  (.mkdirs (.getParentFile file))
+                  (spit file (:template change))
+                  (when (:executable change)
+                    (.setExecutable file true)))
+       :transform (when-let [transform-fn (:transform change)]
+                   (transform-fn))
+       (throw (ex-info \"Unknown change type\" {:change change}))))"
+
+  :validate-and-transact!
+  "(defn validate-and-transact! []
+     (println \"Starting validate-and-transact!\")
+     (println \"Current PROJECT_ROOT:\" (get-project-root))
+     (try
+       (validate-project-root)
+       (println \"Project root validated.\")
+       (if (dry-run?)
+         (do
+           (println \"Performing dry run:\")
+           (doseq [change (:changes change-spec)]
+             (println \"Would transact:\" (pr-str change))))
+         (do
+           (println \"Performing actual changes:\")
+           (doseq [change (:changes change-spec)]
+             (println \"Transacting:\" (pr-str change))
+             (transact-change change))))
+       (println \"validate-and-transact! completed.\")
+       (catch Exception e
+         (println \"Error:\" (.getMessage e))
+         (println \"Please ensure PROJECT_ROOT is set correctly.\"))))"}}

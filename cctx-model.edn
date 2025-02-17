@@ -24,7 +24,48 @@
    :prompt-md ""
    :response-md ""}]}
 :conversation
-[{:date "2025-02-16T07:29:02-06:00" :author "Chip" :audience "Claude 3.5 Sonnet (Preview)" :audience-key :ai-ide :confidential-audience nil :confidential-author nil
+[{:date "2025-02-17T09:13:01-06:00" :author "Chip" :audience "Claude 3.5 Sonnet (Preview)" :audience-key :ai-ide :confidential-author nil
+ :md "CCTX may just be a bridge too far. Let's see."
+ :prompt-md "Thank you for the option — and that is a lot of static text to manage. We have a lot to do to get the cctx templates implemented. For now, let's see if we can just modify the builder directly. Up to it?"
+ :response-md ""}
+ {:date "2025-02-17T08:19:07-06:00" :author "Chip" :audience "Claude 3.5 Sonnet (Preview)" :audience-key :ai-ide :confidential-author nil
+ :md "Let's see how this goes"
+ :prompt-md "So, getting this cctx system to work involves working with the cctx the builder created in the target project. There we learn what needs to go into future cctxs. We need to use those understandings. Getting them back into the builder is a little tricky.
+
+I have highlighted the text in the modified cctx that the builder needs to put in future cctxs. Can you reliably modify the builder directly? If not, what heuristics or intermediate forms can we put in the workflow to make it possible?"
+ :response-md "Looking at this challenge, I see a few key points:
+
+1. We need a way to identify what parts of a working CCTX should be propagated back into the builder
+2. Changes made in the field (like adding debug logging to `validate-and-transact!`) need to be captured
+3. We want to maintain version control over these improvements
+
+Here's what I suggest:
+
+1. Create a \"transactor templates\" system:
+   - Move transactor code into versioned template files
+   - Templates can be updated based on field experience
+   - Builder pulls from these templates when creating CCTXs
+
+2. Example structure:
+
+### [basic.edn](file:///home/chip/Documents/cctx/templates/v1/transactors/basic.edn)
+
+This approach gives us:
+1. Version control over transactor code
+2. Easy way to update from field experience
+3. Multiple transactor templates for different use cases
+4. Clear separation between template and implementation
+5. Ability to evolve the transactor interface over time
+
+When you find improvements in the field, you can:
+1. Update the appropriate transactor template
+2. Version control the changes
+3. Builder automatically gets the improvements
+
+Does this intermediate form help manage the evolution of the transactor code?
+
+Made changes."}
+ {:date "2025-02-16T07:29:02-06:00" :author "Chip" :audience "Claude 3.5 Sonnet (Preview)" :audience-key :ai-ide :confidential-audience nil :confidential-author nil
  :md ""
  :prompt-md "This code has been moved out of the project in which it was created to allow for independent development — or execution. As a consequence it needs to read project information from a config file the name of which is specified on the command line with a `--projects` option. The config file is a simple edn file with the following structure:
              ```edn
