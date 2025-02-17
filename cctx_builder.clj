@@ -26,15 +26,15 @@
         validator (m/validator projects-schema)]
     (when-not (validator config)
       (let [explanation (-> (m/explainer projects-schema)
-                           (#(% config))
-                           (me/humanize))]
+                            (#(% config))
+                            (me/humanize))]
         (throw (ex-info "Invalid projects configuration"
-                       {:explanation explanation}))))
+                        {:explanation explanation}))))
     (if-let [project (get-in config [:projects project-name])]
       project
       (throw (ex-info "Project not found in config"
-                     {:project project-name
-                      :available-projects (keys (:projects config))})))))
+                      {:project project-name
+                       :available-projects (keys (:projects config))})))))
 
 (def cli-opts
   {:coerce {:template :keyword
@@ -52,20 +52,20 @@
   (let [project-root (:project-root project-config)
         builder-templates (io/file "templates" version)
         project-templates (when (:project-has-templates project-config)
-                          (io/file project-root 
-                                 (:project-templates-dir project-config)
-                                 version))]
+                            (io/file project-root
+                                     (:project-templates-dir project-config)
+                                     version))]
     (cond
       (and project-templates (.exists project-templates)) project-templates
       (.exists builder-templates) builder-templates
       :else (throw (ex-info "Templates directory not found"
-                           {:version version
-                            :searched-paths [project-templates builder-templates]})))))
+                            {:version version
+                             :searched-paths [project-templates builder-templates]})))))
 
 (defn get-valid-versions [project-config]
   (let [search-dirs [(when (:project-has-templates project-config)
                        (io/file (:project-root project-config)
-                              (:project-templates-dir project-config)))
+                                (:project-templates-dir project-config)))
                      (io/file "templates")]]
     (->> search-dirs
          (remove nil?)
@@ -83,15 +83,15 @@
             validator (m/validator schema)]
         validator)
       (throw (ex-info "Template schema not found"
-                     {:version version
-                      :schema-path (.getPath schema-file)})))))
+                      {:version version
+                       :schema-path (.getPath schema-file)})))))
 
 (defn load-template [project-config template-name version]
   (let [valid-versions (get-valid-versions project-config)]
     (if-not (contains? valid-versions version)
       (throw (ex-info (str "Invalid template version. Must be one of: " (str/join ", " (sort valid-versions)))
-                     {:version version
-                      :valid-versions valid-versions}))
+                      {:version version
+                       :valid-versions valid-versions}))
       (let [templates-dir (find-templates-dir project-config version)
             template-file (io/file templates-dir "templates.edn")  ; Changed from cctx-templates.edn
             validate-templates (load-template-schema templates-dir version)]
@@ -99,15 +99,15 @@
           (let [templates (-> template-file slurp edn/read-string)]
             (if-not (validate-templates templates)
               (throw (ex-info "Invalid templates configuration"
-                            {:version version
-                             :templates templates}))
+                              {:version version
+                               :templates templates}))
               (if-let [template (get templates template-name)]
                 template
-                (throw (ex-info "Template not found" 
-                              {:template template-name
-                               :version version})))))
+                (throw (ex-info "Template not found"
+                                {:template template-name
+                                 :version version})))))
           (throw (ex-info "Template version not found"
-                        {:version version})))))))
+                          {:version version})))))))
 
 (defn kebab->snake [s]
   (str/replace s "-" "_"))
@@ -144,25 +144,61 @@
 
 (defn validate-and-transact! []
   (validate-project-root)
+  (println (str \"Description: \" (:description change-spec)))  
+  (println (str \"Change spec: \" (:changes change-spec)))  
   (if (dry-run?)
     (doseq [change (:changes change-spec)]
       (println \"Would transact:\" (pr-str change)))
     (doseq [change (:changes change-spec)]
       (transact-change change))))")
 
+(def dev-comment-template
+  "\n\n(comment
+  ;; Example REPL usage
+  
+  (validate-project-root)
+  
+  ;; Test dry run
+  (validate-and-transact!)
+  
+  ;; Run specific changes
+  (transact-change (first (:changes change-spec)))
+  
+  ;; Development scratch pad
+  
+  ,)")
+
+(def comments-template
+  "\n\n;; Comments and Development Notes
+;; ============================
+;; Creation Date: %s
+;; Template: %s (version %s)
+;;
+;; Implementation Notes:
+;; -------------------
+;; 
+;; Testing Notes:
+;; ------------
+;; 
+;; Outstanding Issues:
+;; -----(set-project-root! \"/path/to/project\")------------
+;; ")
+
+
+
 (defn create-cctx! [cctx-name {:keys [template template-version project projects overwrite-existing] :as opts}]
   (let [project-config (load-project-config projects project)
         template-data (load-template project-config template template-version)
         snake-name (kebab->snake cctx-name)
-        cctx-dir (io/file (:project-root project-config) 
-                         (:cctxs-dir project-config)
-                         snake-name)]
+        cctx-dir (io/file (:project-root project-config)
+                          (:cctxs-dir project-config)
+                          snake-name)]
     (when (.exists cctx-dir)
       (if overwrite-existing
         (delete-directory-recursive cctx-dir)
         (throw (ex-info "CCTX already exists"
-                       {:cctx-name cctx-name
-                        :cctx-dir (.getPath cctx-dir)}))))
+                        {:cctx-name cctx-name
+                         :cctx-dir (.getPath cctx-dir)}))))
     (.mkdirs cctx-dir)
     (spit (io/file cctx-dir "cctx.clj")
           (str "(ns dev.cctx.cctxs." cctx-name ".cctx\n"
@@ -185,7 +221,12 @@
                (pr-str (assoc (:spec template-data) :title cctx-name))
                ")\n\n"
                transactor-template
-               "\n"))))
+               dev-comment-template
+               (format comments-template
+                       (.format (java.text.SimpleDateFormat. "yyyy-MM-dd HH:mm:ss")
+                                (java.util.Date.))
+                       (name template)
+                       template-version)))))
 
 (defn -main [& args]
   (if (< (count args) 1)
