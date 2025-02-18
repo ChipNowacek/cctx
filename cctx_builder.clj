@@ -136,9 +136,8 @@
         cctx-template (slurp (io/file cctx-template-path))
         readme-template (slurp (io/file readme-template-path))
         spec (:spec template-data)
-        tx-project-root (if (not (str/blank? container-project-root))
-                          container-project-root
-                          (:project-root project-config))
+        is-container (not (str/blank? container-project-root))
+        tx-project-root (if is-container container-project-root (:project-root project-config))
         tx-cctx-dir (str tx-project-root "/" (:cctxs-dir project-config) "/" snake-name)
         namespace (str (str/replace (:cctxs-dir project-config) "/" ".") "." cctx-name ".cctx")
         replace-map {"{{current-dir}}" tx-cctx-dir
