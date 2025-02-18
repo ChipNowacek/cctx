@@ -325,6 +325,11 @@
   (get-project-root)
   (print in-container?)
   
+  ;; State management testing
+  (init-state! #{"cctx.clj" "README.md" ".cctx-state.edn" ".manifest"})
+  (load-state)
+  (update-state! assoc :status :active)
+  
   ;; Git and manifest testing
   (git-status-clean?)
   (in-git-repo?)
@@ -364,10 +369,20 @@
   
   ;; Full workflow test (dry run)
   (do
-    (validate-project-root)
-    (git-status-clean?)
+    (init-cctx!)
+    (activate-cctx!)
     (validate-and-transact!)
-    (rollback!))
+    (deactivate-cctx!)
+    (complete-cctx!))
+  
+  ;; State transitions
+  (init-cctx!)
+  (activate-cctx!)
+  (deactivate-cctx!)
+  (complete-cctx!)
+  
+  ;; Check state after each transition
+  (load-state)
 )
 
 ;; Comments and Development Notes
