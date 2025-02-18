@@ -1,7 +1,9 @@
 (ns {{namespace}}
   (:require [clojure.java.io :as io]
             [clojure.string :as str]
-            [clojure.java.shell :refer [sh]]))
+            [clojure.java.shell :refer [sh]]
+            [clojure.edn :as edn]
+            [malli.core :as m]))
 
 (def tx-project-root "{{tx-project-root}}")
 (def cctxs-dir "{{cctxs-dir}}")
@@ -30,6 +32,50 @@
    :dry-run {{dry-run}}
    :rollback {{rollback}}
    :requires {{requires}}})
+
+(def cctx-state-schema
+  [:map
+   [:schema [:map-of :keyword any?]]
+   [:data
+    [:map
+     [:version string?]
+     [:cctx-name string?]
+     [:original-branch {:optional true} string?]
+     [:files [:set string?]]
+     [:stashes [:vector string?]]
+     [:status [:enum :initialized :active :inactive :completed]]]]])
+
+(defn load-state []
+  (let [state-file (io/file current-dir ".cctx-state.edn")]
+    (when (.exists state-file)
+      (let [state (-> state-file slurp edn/read-string)]
+        (if (m/validate cctx-state-schema state)
+          state
+          (throw (ex-info "Invalid CCTX state file" 
+                         {:file (.getPath state-file)})))))))
+
+(defn save-state! [state]
+  (let [state-with-schema (assoc state :schema cctx-state-schema)]
+    (if (m/validate cctx-state-schema state-with-schema)
+      (spit (io/file current-dir ".cctx-state.edn") 
+            (pr-str state-with-schema))
+      (throw (ex-info "Invalid CCTX state" 
+                     {:state state})))))
+
+(defn init-state! [files]
+  (save-state!
+    {:data {:version "1"
+            :cctx-name cctx-name
+            :files files
+            :stashes []
+            :status :initialized}}))
+
+(defn update-state! [f & args]
+  (let [current-state (or (load-state)
+                         (throw (ex-info "CCTX state file not found" 
+                                       {:dir current-dir})))
+        new-state (apply update current-state :data f args)]
+    (save-state! new-state)))
 
 (defn transact-change [change]
   (case (:type change)
@@ -68,6 +114,87 @@
     (println "in-git-repo? stdout:" out)
     (println "in-git-repo? stderr:" err)
     (zero? exit)))
+
+(defn current-branch []
+  (let [{:keys [exit out]} (git-cmd "rev-parse" "--abbrev-ref" "HEAD")]
+    (when (zero? exit)
+      (str/trim out))))
+
+(defn stash-changes [description]
+  (let [{:keys [exit out]} (git-cmd "stash" "push" "-m" description)]
+    (when (zero? exit)
+      (str/trim (re-find #"stash@\{[0-9]+\}" out)))))
+
+(defn apply-stash [stash-ref]
+  (let [{:keys [exit]} (git-cmd "stash" "apply" stash-ref)]
+    (zero? exit)))
+
+(defn drop-stash [stash-ref]
+  (let [{:keys [exit]} (git-cmd "stash" "drop" stash-ref)]
+    (zero? exit)))
+
+(defn checkout-branch [branch-name]
+  (let [{:keys [exit]} (git-cmd "checkout" branch-name)]
+    (zero? exit)))
+
+(defn create-branch [branch-name]
+  (let [{:keys [exit]} (git-cmd "checkout" "-b" branch-name)]
+    (zero? exit)))
+
+(defn branch-exists? [branch-name]
+  (let [{:keys [exit]} (git-cmd "rev-parse" "--verify" branch-name)]
+    (zero? exit)))
+
+(defn ensure-branch []
+  (or (branch-exists? cctx-name)
+      (create-branch cctx-name)))
+
+(defn init-cctx! []
+  (validate-project-root)
+  (when (in-git-repo?)
+    (let [state (load-state)]
+      (if state
+        state  ; Return existing state if found
+        (let [files #{"cctx.clj" "README.md" ".cctx-state.edn" ".manifest"}]
+          (init-state! files))))))
+
+(defn activate-cctx! []
+  (validate-project-root)
+  (when-not (in-git-repo?)
+    (throw (ex-info "Not in a git repository" {:dir current-dir})))
+  
+  (let [orig-branch (current-branch)]
+    (when (and orig-branch (not= orig-branch cctx-name))
+      (when-let [stash-ref (stash-changes (str "CCTX stash for " cctx-name))]
+        (update-state! assoc
+                             :original-branch orig-branch
+                             :stashes (conj (:stashes (load-state)) stash-ref))))
+    
+    (when (ensure-branch)
+      (update-state! assoc :status :active))))
+
+(defn deactivate-cctx! []
+  (validate-project-root)
+  (let [state (load-state)
+        orig-branch (:original-branch (:data state))]
+    (when orig-branch
+      (when-let [stash-ref (stash-changes (str "CCTX work on " cctx-name))]
+        (update-state! update :stashes conj stash-ref)
+        (when (checkout-branch orig-branch)
+          (update-state! assoc :status :inactive))))))
+
+(defn complete-cctx! []
+  (validate-project-root)
+  (let [state (load-state)
+        stashes (get-in state [:data :stashes])]
+    (doseq [stash stashes]
+      (apply-stash stash)
+      (drop-stash stash))
+    (update-state! assoc 
+                         :stashes []
+                         :status :completed)))
+
+
 
 (defn get-relative-path [full-path]
   (when (str/starts-with? full-path current-dir)

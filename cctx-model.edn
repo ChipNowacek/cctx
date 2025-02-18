@@ -1,3 +1,5 @@
+; This "model" is not currently in use. The real value of this file is in :questions and :conversation
+; We'll see if we use the rest of the model map in the future.
 {:version "1"
  :spec {:required-keys [:version :title :description :changes]
         :optional-keys [:author :date :dependencies :preconditions :postconditions
@@ -24,7 +26,171 @@
    :prompt-md ""
    :response-md ""}]}
 :conversation
-[{:date "2025-02-18T09:08:06-06:00" :author "Chip" :audience "Claude 3.5 Sonnet (Preview)" :audience-key :ai-ide :confidential-author nil
+[{:date "2025-02-18T11:45:13-06:00" :author "Chip" :audience "Claude 3.5 Sonnet (Preview)" :audience-key :ai-ide :confidential-author nil
+ :md ""
+ :prompt-md "Actually, all four functions need to be idempotent.
+
+The state file structure looks good to my early-at-this eye.
+
+To your questions:
+1. Maybe later.
+2. Good enough for now.
+3. The thought is a waking nightmare. No thank you.
+4. Well just use git's tagging for now.
+
+Before you go to work, do you have any other questions? Feel like you can handle this in one go?"
+ :response-md "Let me outline my implementation plan to make sure we're aligned:
+
+1. **First, create schema and state management**:
+```clojure
+(def cctx-state-schema 
+  [:map
+   [:schema [:map-of :keyword any?]]  ; The schema travels with the data
+   [:data 
+    [:map
+     [:version string?]
+     [:cctx-name string?]
+     [:original-branch string?]
+     [:files [:set string?]]
+     [:stashes [:vector string?]]
+     [:status [:enum :initialized :active :inactive :completed]]]]])
+```
+
+2. **Then implement four idempotent functions**:
+- `init-cctx!`: Creates/updates files and state, never fails if exists
+- `activate-cctx!`: Switches to branch (creates if needed), manages stash
+- `deactivate-cctx!`: Stashes changes, switches back, preserves state
+- `complete-cctx!`: Merges changes (if any), cleans up
+
+3. **Key idempotency features**:
+- Each function checks state and only performs necessary actions
+- State file acts as source of truth
+- Git operations are made safe to retry
+- Functions return consistent result regardless of repetition
+
+Questions before I start:
+1. Should we support force flags for state transitions? (e.g., force deactivate)
+2. Do we need any locking mechanism for concurrent access?
+3. Should we store last successful operation timestamp in state?
+
+Want me to proceed with the implementation?"}
+{:date "2025-02-18T11:31:11-06:00" :author "Chip" :audience "Claude 3.5 Sonnet (Preview)" :audience-key :ai-ide :confidential-author nil
+ :md ""
+ :prompt-md "How about:
+
+- Instead of `create-cctx!` let's do `init-cctx!` that ought to be idempotent
+- Your `.cctx-state.edn` file idea is a good one. How about we put the manifest data in there? I'd feel better if we could validate that state file. What do you think about the state file carrying around its own validation map instead of having to manage yet another file?
+
+Let's talk further before you go to work."
+ :response-md "Good thoughts. Let me share my thinking on these suggestions:
+
+1. **Idempotent `init-cctx!`**
+- Similar to `git init`, it should be safe to run multiple times
+- Creates/updates state rather than failing on existence
+- Good for reproducibility and development
+
+2. **.cctx-state.edn Structure**
+I envision something like:
+```clojure
+{:schema [:map
+          [:version string?]
+          [:cctx-name string?]
+          [:original-branch string?]
+          [:files [:set string?]]  ; replaces .manifest
+          [:stashes [:vector string?]]
+          [:status [:enum :initialized :active :inactive :completed]]]
+ :data
+ {:version \"1\"
+  :cctx-name \"my-change\"
+  :original-branch \"main\"
+  :files #{\"cctx.clj\" \"README.md\" \".cctx-state.edn\"}
+  :stashes []
+  :status :initialized}}
+```
+
+Benefits:
+- Self-validating (schema travels with data)
+- Single source of truth for CCTX state
+- Easier to track workflow stages
+- Supports future extensions without schema changes
+
+Questions before proceeding:
+1. Should state file track git operations history?
+2. How granular should the status enum be?
+3. Do we want to track dependencies between CCTXs?
+4. Should we add metadata like timestamps, author?
+
+What are your thoughts on this direction?"}
+{:date "2025-02-18T11:15:14-06:00" :author "Chip" :audience "Claude 3.5 Sonnet (Preview)" :audience-key :ai-ide :confidential-author nil
+ :md ""
+ :prompt-md "Well, we are getting closer to actually using cctx facilities. My understanding of workflow was off. We only want to transact when we are on the branch dedicated to the cctx. That means `validate-and-transact!` has to change. It also means we need functions that  allow us to go into and out of a cctx work mode that at least involves changing branches with the appropriate stashing and unstashing. 
+
+Before you make any changes, could you please give your assessment of what changes need to be made?"
+ :response-md "Let me outline what I think needs to change to support a proper CCTX workflow:
+
+1. **Workflow Separation**
+We need to separate the workflow into distinct phases:
+- Initialization (create CCTX files, branch, etc.)
+- Activation (switch to CCTX branch, unstash if needed)
+- Transaction (apply changes in active CCTX)
+- Deactivation (stash changes, switch back to original branch)
+- Completion (merge CCTX branch, cleanup)
+
+2. **Required Changes**
+
+a. New Core Functions:
+```clojure
+(defn activate-cctx! []
+  ; - Verify we're in a CCTX directory
+  ; - Save current branch
+  ; - Stash any existing changes
+  ; - Switch to CCTX branch
+  ; - Apply stash if it exists for this CCTX
+)
+
+(defn deactivate-cctx! []
+  ; - Verify we're on CCTX branch
+  ; - Stash any changes
+  ; - Switch back to saved branch
+)
+
+(defn complete-cctx! []
+  ; - Verify changes are committed
+  ; - Merge CCTX branch to original branch
+  ; - Clean up stashes and branch
+)
+```
+
+b. Modify `validate-and-transact!`:
+- Remove branch creation (now part of initialization)
+- Add verification that we're on correct CCTX branch
+- Focus purely on change application
+
+c. Add State Management:
+- Need to track original branch
+- Need to track stash references
+- Could use a .cctx-state.edn file in CCTX directory
+
+d. Update Rollback:
+- Handle stashed changes
+- Consider partial transactions
+
+3. **New Workflow Would Be**:
+```clojure
+;; Initial setup
+(create-cctx! \"my-change\" opts)
+
+;; When ready to work
+(activate-cctx!)
+(validate-and-transact!)  ; Now only runs if on correct branch
+(deactivate-cctx!)
+
+;; When ready to finish
+(complete-cctx!)
+```
+
+Would you like me to proceed with implementing these changes? We can do it incrementally, starting with whichever part you think is most important."}
+{:date "2025-02-18T09:08:06-06:00" :author "Chip" :audience "Claude 3.5 Sonnet (Preview)" :audience-key :ai-ide :confidential-author nil
  :md ""
  :prompt-md "I've added :dev-in-container? and :container-project-root to `projects.edn`. Please remove `--container-project-root` as a command line option. You'll have to be careful with this change. Dealing with container config in the project file simplifies many things. Please review. If it needs to be done in stages, we can do that. If all at once is better, let's do that. Take your time.
 "
