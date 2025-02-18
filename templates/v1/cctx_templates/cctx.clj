@@ -81,7 +81,7 @@
           (if (<= untracked-count 2)
             true
             (do
-              (println "Warning: More than 2 untracked files found. Please commit or stash changes before proceeding.")
+              (println "Warning: More than 2 untracked files found. Only `cctx.clj` and `README.md` are expected. Please commit or stash changes before proceeding.")
               false)))
         (do
           (println "Warning: Git command failed. Error:" err)
@@ -95,9 +95,8 @@
     (when (str/blank? current-branch)
       (throw (ex-info "Unable to determine current branch. CCTX cannot proceed without rollback capability." 
                       {:cctx-name cctx-name})))
-    (let [rollback-script (str current-dir "/rollback_" cctx-name ".sh")
+    (let [rollback-script (str current-dir "/rollback.sh")
           script-content (str "#!/bin/bash\n"
-                              "cd " tx-project-root "\n"
                               "git checkout " current-branch "\n"
                               "git branch -D " cctx-name "\n")]
       (spit rollback-script script-content)

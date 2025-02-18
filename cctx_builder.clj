@@ -130,23 +130,26 @@
   (let [project-config (load-project-config projects project)
         template-data (load-template project-config template template-version)
         snake-name (kebab->snake cctx-name)
+        project-root (:project-root project-config)
+        cctxs-dir (:cctxs-dir project-config)
+        cctx-fully-qualified-name (str project-root "/" cctxs-dir "/"snake-name)
         cctx-dir (io/file (:project-root project-config)
-                          (:cctxs-dir project-config)
-                          snake-name)
+                  (:cctxs-dir project-config)
+                  snake-name)
         cctx-template-path (str "templates/" template-version "/cctx_templates/cctx.clj")
         readme-template-path (str "templates/" template-version "/cctx_templates/README.md")
         cctx-template (slurp (io/file cctx-template-path))
         readme-template (slurp (io/file readme-template-path))
         spec (:spec template-data)
         is-container (not (str/blank? container-project-root))
-        tx-project-root (if is-container container-project-root (:project-root project-config))
+        tx-project-root (if is-container container-project-root project-root)
         tx-cctx-dir (str tx-project-root "/" (:cctxs-dir project-config) "/" snake-name)
         namespace (str (str/replace (:cctxs-dir project-config) "/" ".") "." cctx-name ".cctx")
         replace-map {"{{current-dir}}" tx-cctx-dir
                      "{{namespace}}" namespace
                      "{{cctx-name}}" cctx-name
                      "{{cctx-dir}}" (:cctx-dir project-config)
-                     "{{cctxs-dir}}" (:cctxs-dir project-config)
+                     "{{cctxs-dir}}" cctxs-dir
                      "{{project-root}}" (:project-root project-config)
                      "{{container-project-root}}" container-project-root
                      "{{tx-project-root}}" tx-project-root
