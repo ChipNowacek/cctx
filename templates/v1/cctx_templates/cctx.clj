@@ -39,8 +39,7 @@
    [:version string?]
    [:cctx-name string?]
    [:original-branch {:optional true} string?]
-   [:files [:set string?]]  ; This will now contain fully qualified paths
-   [:stashes [:vector string?]]
+   [:files [:set string?]]
    [:status [:enum :initialized :active :inactive :completed]]])
 
 (defn load-state []
@@ -188,42 +187,34 @@
   (when-not (in-git-repo?)
     (throw (ex-info "Not in a git repository" {:dir current-dir})))
   
+  (when-not (git-status-clean?)
+    (throw (ex-info "Git working tree is not clean. Please commit or stash changes before activating CCTX." {})))
+
   (let [orig-branch (current-branch)]
     (when (and orig-branch (not= orig-branch cctx-name))
-      (println "Stashing changes before switching branches")
-      (if-let [stash-ref (stash-changes (str "CCTX stash for " cctx-name))]
-        (do
-          (println "Changes stashed:" stash-ref)
-          (update-state! assoc
-                         :original-branch orig-branch
-                         :stashes (conj (:stashes (load-state)) stash-ref)))
-        (println "No changes to stash or stash failed")))
+      (ensure-branch)
+      (update-state! assoc :original-branch orig-branch)
+      
+      ; Unstash changes if there's a stash for this CCTX
+      (let [stash-ref (str "stash^{/" cctx-name)}]
+        (when (zero? (:exit (git-cmd "rev-parse" "--verify" stash-ref)))
+          (apply-stash stash-ref)
+          (drop-stash stash-ref))))
     
-    (when (ensure-branch)
-      (update-state! assoc :status :active))))
+    (update-state! assoc :status :active)))
 
 (defn deactivate-cctx! []
   (validate-project-root)
   (let [state (load-state)
-        orig-branch (:original-branch (:data state))]
+        orig-branch (:original-branch state)]
     (when orig-branch
-      (when-let [stash-ref (stash-changes (str "CCTX work on " cctx-name))]
-        (update-state! update :stashes conj stash-ref)
-        (when (checkout-branch orig-branch)
-          (update-state! assoc :status :inactive))))))
+      (stash-changes (str "CCTX work on " cctx-name))
+      (when (checkout-branch orig-branch)
+        (update-state! assoc :status :inactive)))))
 
 (defn complete-cctx! []
   (validate-project-root)
-  (let [state (load-state)
-        stashes (get-in state [:data :stashes])]
-    (doseq [stash stashes]
-      (apply-stash stash)
-      (drop-stash stash))
-    (update-state! assoc 
-                         :stashes []
-                         :status :completed)))
-
-
+  (update-state! assoc :status :completed))
 
 (defn get-relative-path [full-path]
   (when (str/starts-with? full-path current-dir)
