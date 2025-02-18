@@ -39,7 +39,7 @@
    [:version string?]
    [:cctx-name string?]
    [:original-branch {:optional true} string?]
-   [:files [:set string?]]
+   [:files [:set string?]]  ; This will now contain fully qualified paths
    [:stashes [:vector string?]]
    [:status [:enum :initialized :active :inactive :completed]]])
 
@@ -61,12 +61,13 @@
                     :errors (m/explain cctx-state-schema state)}))))
 
 (defn init-state! [files]
-  (save-state!
-    {:version "1"
-     :cctx-name cctx-name
-     :files files
-     :stashes []
-     :status :initialized}))
+  (let [fully-qualified-files (set (map #(str current-dir "/" %) files))]
+    (save-state!
+      {:version "1"
+       :cctx-name cctx-name
+       :files fully-qualified-files
+       :stashes []
+       :status :initialized})))
 
 (defn update-state! [f & args]
   (let [current-state (or (load-state)
@@ -268,17 +269,16 @@
       (let [state (load-state)
             cctx-files (or (:files state) #{})
             reported-files (set (map #(str/replace % #"^\?\? " "") (str/split-lines out)))
-            relative-reported-files (set (map #(str/replace-first % (str tx-project-root "/") "") reported-files))
-            relative-cctx-files (set (map #(str/replace-first % (str current-dir "/") "") cctx-files))]
+            fully-qualified-reported-files (set (map #(str tx-project-root "/" %) reported-files))]
         (if (empty? reported-files)
           true
-          (if (= relative-reported-files relative-cctx-files)
+          (if (= fully-qualified-reported-files cctx-files)
             true
             (do
               (println "Warning: Unexpected files found. Only files listed in .cctx-state.edn are allowed.")
-              (println "Unexpected files:" (str/join ", " (remove relative-cctx-files relative-reported-files)))
-              (println "CCTX files:" (str/join ", " relative-cctx-files))
-              (println "Reported files:" (str/join ", " relative-reported-files))
+              (println "Unexpected files:" (str/join ", " (remove cctx-files fully-qualified-reported-files)))
+              (println "CCTX files:" (str/join ", " cctx-files))
+              (println "Reported files:" (str/join ", " fully-qualified-reported-files))
               false))))
       (do
         (println "Warning: Git command failed. Assuming working tree is not clean.")
@@ -409,4 +409,12 @@
     (println "Current directory:" current-dir)
     (println "Project root:" tx-project-root)
     result)
+  
+  ;; Test fully qualified file paths in state
+  (do
+    (init-state! #{"cctx.clj" "README.md" ".cctx-state.edn"})
+    (let [state (load-state)]
+      (println "Initialized state:")
+      (println "Files:" (:files state))
+      (println "All files fully qualified:" (every? #(str/starts-with? % current-dir) (:files state)))))
 )
