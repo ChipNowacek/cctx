@@ -139,12 +139,12 @@
     (when-not (zero? exit)
       (throw (ex-info "Rollback script failed" {:exit exit :out out :err err})))))
 
-(defn create-and-switch-branch [branch-name]
-  (let [{:keys [exit out err]} (git-cmd "checkout" "-b" branch-name)]
+(defn create-and-switch-branch []
+  (let [{:keys [exit out err]} (git-cmd "checkout" "-b" cctx-name)]
     (if (zero? exit)
-      (println "Created and switched to new branch:" branch-name)
+      (println "Created and switched to new branch:" cctx-name)
       (throw (ex-info "Failed to create and switch to new branch"
-                      {:branch branch-name
+                      {:branch cctx-name
                        :exit exit
                        :out out
                        :err err})))))
@@ -169,7 +169,7 @@
                                 (throw (ex-info "CCTX cannot proceed without rollback capability" {:cause e}))))] 
         (println "Rollback script created:" rollback-script)
         (try
-          (create-and-switch-branch cctx-name)
+          (create-and-switch-branch)
           (println (str "Description: " (:description change-spec))) 
           (println (str "Transaction project root:" tx-project-root))
           (println (str "Change spec: " (:changes change-spec)))
