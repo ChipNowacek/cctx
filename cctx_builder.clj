@@ -6,8 +6,7 @@
             [clojure.java.io :as io]
             [clojure.edn :as edn]
             [malli.core :as m]
-            [malli.error :as me]
-            [clojure.java.shell :as shell]))
+            [malli.error :as me]))
 
 (def projects-schema
   [:map
@@ -156,7 +155,15 @@
                      "{{requires}}" (pr-str (:requires spec []))
                      "{{project}}" project}
         cctx-content (reduce-kv str/replace cctx-template replace-map)
-        readme-content (reduce-kv str/replace readme-template replace-map)]
+        container-regex #"(?s)\{\{#container\}\}(.*?)\{\{/container\}\}"
+        non-container-regex #"(?s)\{\{\^container\}\}(.*?)\{\{/\^container\}\}"
+        process-readme (fn [content]
+                         (-> content
+                             (str/replace container-regex (if is-container "$1" ""))
+                             (str/replace non-container-regex (if is-container "" "$1"))
+                             ((fn [c] (reduce (fn [acc [k v]] (str/replace acc k v)) c replace-map)))
+                             (str/replace #"\n{3,}" "\n\n")))
+        readme-content (process-readme readme-template)]
     (when (.exists cctx-dir)
       (if overwrite-existing
         (delete-directory-recursive cctx-dir)
