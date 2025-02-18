@@ -3,7 +3,8 @@
             [clojure.string :as str]
             [clojure.java.shell :refer [sh]]
             [clojure.edn :as edn]
-            [malli.core :as m]))
+            [malli.core :as m]
+            [malli.error :as me]))
 
 (def tx-project-root "{{tx-project-root}}")
 (def cctxs-dir "{{cctxs-dir}}")
@@ -35,15 +36,12 @@
 
 (def cctx-state-schema
   [:map
-   [:schema [:map-of :keyword any?]]
-   [:data
-    [:map
-     [:version string?]
-     [:cctx-name string?]
-     [:original-branch {:optional true} string?]
-     [:files [:set string?]]
-     [:stashes [:vector string?]]
-     [:status [:enum :initialized :active :inactive :completed]]]]])
+   [:version string?]
+   [:cctx-name string?]
+   [:original-branch {:optional true} string?]
+   [:files [:set string?]]
+   [:stashes [:vector string?]]
+   [:status [:enum :initialized :active :inactive :completed]]])
 
 (defn load-state []
   (let [state-file (io/file current-dir ".cctx-state.edn")]
@@ -52,29 +50,29 @@
         (if (m/validate cctx-state-schema state)
           state
           (throw (ex-info "Invalid CCTX state file" 
-                         {:file (.getPath state-file)})))))))
+                         {:file (.getPath state-file)
+                          :errors (m/explain cctx-state-schema state)})))))))
 
 (defn save-state! [state]
-  (let [state-with-schema (assoc state :schema cctx-state-schema)]
-    (if (m/validate cctx-state-schema state-with-schema)
-      (spit (io/file current-dir ".cctx-state.edn") 
-            (pr-str state-with-schema))
-      (throw (ex-info "Invalid CCTX state" 
-                     {:state state})))))
+  (if (m/validate cctx-state-schema state)
+    (spit (io/file current-dir ".cctx-state.edn") (pr-str state))
+    (throw (ex-info "Invalid CCTX state" 
+                   {:state state
+                    :errors (m/explain cctx-state-schema state)}))))
 
 (defn init-state! [files]
   (save-state!
-    {:data {:version "1"
-            :cctx-name cctx-name
-            :files files
-            :stashes []
-            :status :initialized}}))
+    {:version "1"
+     :cctx-name cctx-name
+     :files files
+     :stashes []
+     :status :initialized}))
 
 (defn update-state! [f & args]
   (let [current-state (or (load-state)
                          (throw (ex-info "CCTX state file not found" 
                                        {:dir current-dir})))
-        new-state (apply update current-state :data f args)]
+        new-state (apply update current-state f args)]
     (save-state! new-state)))
 
 (defn transact-change [change]
@@ -156,7 +154,23 @@
       (if state
         state  ; Return existing state if found
         (let [files #{"cctx.clj" "README.md" ".cctx-state.edn" ".manifest"}]
-          (init-state! files))))))
+          (println "Initializing state with files:" files)
+          (try
+            (init-state! files)
+            (catch Exception e
+              (println "Error initializing state:" (.getMessage e))
+              (println "State that failed validation:" (pr-str {:version "1"
+                                                                :cctx-name cctx-name
+                                                                :files files
+                                                                :stashes []
+                                                                :status :initialized}))
+              (when-let [explanation (m/explain cctx-state-schema {:version "1"
+                                                                   :cctx-name cctx-name
+                                                                   :files files
+                                                                   :stashes []
+                                                                   :status :initialized})]
+                (println "Validation errors:" (me/humanize explanation)))))
+          (load-state))))))
 
 (defn activate-cctx! []
   (validate-project-root)
@@ -383,6 +397,20 @@
   
   ;; Check state after each transition
   (load-state)
+  
+  ;; Detailed init-cctx! testing
+  (do
+    (println "Testing init-cctx!")
+    (let [result (init-cctx!)]
+      (println "init-cctx! result:" result)
+      (println "Current state:" (load-state))))
+  
+  ;; Validate state structure
+  (m/validate cctx-state-schema (load-state))
+  
+  ;; Print detailed state explanation if invalid
+  (when-let [explanation (m/explain cctx-state-schema (load-state))]
+    (println "State validation errors:" (me/humanize explanation)))
 )
 
 ;; Comments and Development Notes
