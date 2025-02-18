@@ -146,13 +146,13 @@
         cctx-template (slurp (io/file cctx-template-path))
         readme-template (slurp (io/file readme-template-path))
         spec (:spec template-data)
-        is-container (:dev-in-container? project-config)
-        container-root (when is-container
+        in-container (:dev-in-container? project-config)
+        container-root (when in-container
                         (or (:container-project-root project-config)
                             (throw (ex-info "Container project root required when dev-in-container? is true"
                                           {:project project
                                            :project-config project-config}))))
-        tx-project-root (if is-container container-root project-root)
+        tx-project-root (if in-container container-root project-root)
         tx-cctx-dir (str tx-project-root "/" cctxs-dir "/" snake-name)
         namespace (str (str/replace cctxs-dir "/" ".") "." cctx-name ".cctx")
         replace-map {"{{current-dir}}" tx-cctx-dir
@@ -160,13 +160,14 @@
                     "{{cctx-name}}" cctx-name
                     "{{cctx-dir}}" (:cctx-dir project-config)
                     "{{cctxs-dir}}" cctxs-dir
-                    "{{project-root}}" project-root
-                    "{{container-project-root}}" (or container-root "")
+                    "{{in-container?}}" (str in-container)
+                    ;; "{{project-root}}" project-root
+                    ;; "{{container-project-root}}" (or container-root "")
                     "{{tx-project-root}}" tx-project-root
                     "{{title}}" (pr-str (:title spec))
                     "{{description}}" (pr-str (:description spec))
                     "{{changes}}" (pr-str (:changes spec))
-                    "{{dry-run}}" (str (:dry-run spec false))
+                    "{{dry-run}}" (str (:dry-run spec true))
                     "{{rollback}}" (str (:rollback spec true))
                     "{{requires}}" (pr-str (:requires spec []))
                     "{{project}}" project}
@@ -175,8 +176,8 @@
         non-container-regex #"(?s)\{\{\^container\}\}(.*?)\{\{/\^container\}\}"
         process-readme (fn [content]
                          (-> content
-                             (str/replace container-regex (if is-container "$1" ""))
-                             (str/replace non-container-regex (if is-container "" "$1"))
+                             (str/replace container-regex (if in-container "$1" ""))
+                             (str/replace non-container-regex (if in-container "" "$1"))
                              (apply-replacements replace-map)
                              (str/replace #"\n{3,}" "\n\n")))
         readme-content (process-readme readme-template)

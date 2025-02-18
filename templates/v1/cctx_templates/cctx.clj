@@ -7,6 +7,7 @@
 (def cctxs-dir "{{cctxs-dir}}")
 (def cctx-name "{{cctx-name}}")
 (def current-dir "{{current-dir}}")
+(def in-container? {{in-container?}})
 
 (defn get-project-root []
   (System/getenv "PROJECT_ROOT"))
@@ -49,9 +50,6 @@
 
 (defn dry-run? []
   (:dry-run change-spec))
-
-(defn in-container? []
-  (not (str/blank? tx-project-root)))
 
 (defn set-safe-directory []
   (let [{:keys [exit err]} (sh "git" "config" "--global" "--add" "safe.directory" tx-project-root)]
@@ -156,13 +154,13 @@
   (validate-project-root)
   (println "Transaction project root:" tx-project-root)
   (println "Current working directory:" current-dir)
-  (println "In container:" (in-container?))
+  (println "In container:" in-container?)
   (set-safe-directory)  ; Set safe directory before any git operations
   (if-not (in-git-repo?)
     (throw (ex-info "Not in a git repository. CCTX cannot proceed." 
                     {:tx-project-root tx-project-root
                      :current-dir current-dir
-                     :in-container (in-container?)}))
+                     :in-container in-container?}))
     (if-not (git-status-clean?)
       (throw (ex-info "Git working tree is not clean. Please commit or stash changes before proceeding." {}))
       (let [rollback-script (try
@@ -199,7 +197,7 @@
   ;; Core validation and setup
   (validate-project-root)
   (get-project-root)
-  (in-container?)
+  (print in-container?)
   
   ;; Git and manifest testing
   (git-status-clean?)
