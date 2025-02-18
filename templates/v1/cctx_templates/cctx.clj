@@ -121,11 +121,17 @@
       (throw (ex-info "Unable to determine current branch. CCTX cannot proceed without rollback capability." 
                       {:cctx-name cctx-name})))
     (let [rollback-script (str current-dir "/rollback.sh")
+          manifest-file (io/file current-dir ".manifest")
           script-content (str "#!/bin/bash\n"
-                              "git checkout " current-branch "\n"
-                              "git branch -D " cctx-name "\n")]
+                            "# Switch back and clean up branch\n"
+                            "git checkout " current-branch "\n"
+                            "git branch -D " cctx-name "\n")]
       (spit rollback-script script-content)
       (.setExecutable (io/file rollback-script) true)
+      ;; Update manifest to include rollback script
+      (when (.exists manifest-file)
+        (let [current-manifest (str/split-lines (slurp manifest-file))]
+          (spit manifest-file (str/join "\n" (conj current-manifest "rollback.sh")))))
       (println "Rollback script created:" rollback-script)
       rollback-script)))
 
