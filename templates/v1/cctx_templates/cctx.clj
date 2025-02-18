@@ -82,9 +82,8 @@
           (println "Warning: Git command failed. Error:" err)
           false)))
     (do
-      (println "Warning: Not in a git repository. Skipping git status check.")
-      true)))
-
+      (println "Warning: Not in a git repository.")
+      false)))
 
 (defn create-rollback-script []
   (let [current-branch (:out (git-cmd "rev-parse" "--abbrev-ref" "HEAD"))]
