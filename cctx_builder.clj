@@ -41,13 +41,15 @@
   {:coerce {:template :keyword
             :template-version :string
             :project :string
-            :overwrite-existing :boolean}
-   :require [:template :template-version :projects :project]
+            :overwrite-existing :boolean
+            :container-project-root :string}
+   :require [:template :template-version :projects :project :container-project-root]
    :spec {:template {:desc "Template to use"}
           :template-version {:desc "Template version"}
           :projects {:desc "Path to projects config file"}
           :project {:desc "Project name from config"}
-          :overwrite-existing {:desc "Delete existing CCTX if it exists"}}})
+          :overwrite-existing {:desc "Delete existing CCTX if it exists"}
+          :container-project-root {:desc "Project root path inside the container"}}})
 
 (defn find-templates-dir [project-config version]
   (let [project-root (:project-root project-config)
@@ -122,7 +124,7 @@
         (delete-directory-recursive child-file)))
     (.delete file)))
 
-(defn create-cctx! [cctx-name {:keys [template template-version project projects overwrite-existing] :as opts}]
+(defn create-cctx! [cctx-name {:keys [template template-version project projects overwrite-existing container-project-root] :as opts}]
   (let [project-config (load-project-config projects project)
         template-data (load-template project-config template template-version)
         snake-name (kebab->snake cctx-name)
@@ -135,6 +137,7 @@
         cctx-content (-> cctx-template
                          (str/replace "{{namespace}}" (str "dev.cctx.cctxs." cctx-name ".cctx"))
                          (str/replace "{{project-root}}" (:project-root project-config))
+                         (str/replace "{{container-project-root}}" container-project-root)
                          (str/replace "{{title}}" (:title spec))
                          (str/replace "{{description}}" (:description spec))
                          (str/replace "{{changes}}" (pr-str (:changes spec)))
@@ -157,6 +160,7 @@
               --template-version <version> 
               --projects <config-file> 
               --project <project-name> 
+              --container-project-root <container-path>
               --overwrite-existing")
     (let [opts (cli/parse-opts args cli-opts)
           name (first args)]
