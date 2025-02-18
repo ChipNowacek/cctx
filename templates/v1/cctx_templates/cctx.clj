@@ -70,24 +70,21 @@
     (zero? exit)))
 
 (defn get-relative-path [full-path]
-  (let [cctx-path (-> current-dir
-                      (str/replace tx-project-root "")
-                      (str/replace #"^/" ""))]
-    (when (str/starts-with? full-path cctx-path)
-      (-> full-path
-          (str/replace (str cctx-path "/") "")))))
+  (when (str/starts-with? full-path current-dir)
+    (str/replace full-path (str current-dir "/") "")))
 
 (defn load-manifest []
   (let [manifest-file (io/file current-dir ".manifest")]
     (when (.exists manifest-file)
-      (-> manifest-file slurp str/split-lines set))))
+      (let [manifest-entries (-> manifest-file slurp str/split-lines)]
+        (->> manifest-entries
+             (map #(str current-dir "/" %))
+             set)))))
 
 (defn expected-files? [untracked-files]
   (let [manifest-files (load-manifest)]
     (if manifest-files
-      (->> untracked-files
-           (keep get-relative-path)
-           (every? manifest-files))
+      (every? manifest-files untracked-files)
       false)))
 
 (defn git-status-clean? []
@@ -95,14 +92,16 @@
     (let [{:keys [exit out err]} (git-cmd "status" "--porcelain" "--untracked-files=all")]
       (if (zero? exit)
         (let [untracked-files (->> (str/split-lines out)
-                                  (map #(str/replace % #"^\?\? " "")))]
+                                  (map #(str/replace % #"^\?\? " ""))
+                                  (map #(str tx-project-root "/" %)))]
           (if (expected-files? untracked-files)
             true
             (do
               (println "Warning: Unexpected files found. Only files listed in .manifest are allowed.")
               (println "Unexpected files:" (str/join ", " 
                         (->> untracked-files
-                             (remove #(expected-files? [%])))))
+                             (remove #(expected-files? [%]))
+                             (map #(str/replace % (str tx-project-root "/") "")))))
               false)))
         (do
           (println "Warning: Git command failed. Error:" err)
