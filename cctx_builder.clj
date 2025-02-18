@@ -123,6 +123,9 @@
         (delete-directory-recursive child-file)))
     (.delete file)))
 
+(defn apply-replacements [content replace-map]
+  (reduce (fn [acc [k v]] (str/replace acc k v)) content replace-map))
+
 (defn create-cctx! [cctx-name {:keys [template template-version project projects overwrite-existing container-project-root] :as opts}]
   (let [project-config (load-project-config projects project)
         template-data (load-template project-config template template-version)
@@ -161,7 +164,7 @@
                          (-> content
                              (str/replace container-regex (if is-container "$1" ""))
                              (str/replace non-container-regex (if is-container "" "$1"))
-                             ((fn [c] (reduce (fn [acc [k v]] (str/replace acc k v)) c replace-map)))
+                             (apply-replacements replace-map)
                              (str/replace #"\n{3,}" "\n\n")))
         readme-content (process-readme readme-template)]
     (when (.exists cctx-dir)
