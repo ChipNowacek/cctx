@@ -16,6 +16,8 @@
      [:map
       [:name string?]
       [:project-root string?]
+      [:dev-in-container? boolean?]
+      [:container-project-root {:optional true} string?]
       [:cctx-dir string?]
       [:cctxs-dir string?]
       [:project-has-templates boolean?]
@@ -132,10 +134,10 @@
         snake-name (kebab->snake cctx-name)
         project-root (:project-root project-config)
         cctxs-dir (:cctxs-dir project-config)
-        cctx-fully-qualified-name (str project-root "/" cctxs-dir "/"snake-name)
+        cctx-fully-qualified-name (str project-root "/" cctxs-dir "/" snake-name)
         cctx-dir (io/file (:project-root project-config)
-                  (:cctxs-dir project-config)
-                  snake-name)
+                          (:cctxs-dir project-config)
+                          snake-name)
         cctx-template-path (str "templates/" template-version "/cctx_templates/cctx.clj")
         readme-template-path (str "templates/" template-version "/cctx_templates/README.md")
         cctx-template (slurp (io/file cctx-template-path))
