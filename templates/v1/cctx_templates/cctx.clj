@@ -61,26 +61,13 @@
       (println "Warning: Failed to set safe directory. Error:" err))))
 
 (defn git-cmd [& args]
-  (let [full-command (concat ["git" "-C" tx-project-root] args)
-        _ (println "Executing git command:" (str/join " " full-command))
-        result (apply sh full-command)]
-    (if (and (= 128 (:exit result))
-             (str/includes? (:err result) "dubious ownership"))
-      (do
-        (println "Detected dubious ownership error. Attempting to add safe directory...")
-        (set-safe-directory)
-        (apply sh full-command))
-      result)))
+  (let [full-command (concat ["git" "-C" tx-project-root] args)]
+    (println "Executing git command:" (str/join " " full-command))
+    (apply sh full-command)))
 
 (defn in-git-repo? []
   (set-safe-directory)  ; Set safe directory before checking
-  (let [{:keys [exit out err]} 
-        (git-cmd(defn get-cctx-name []
-                                         (let [ns-parts (str/split (str *ns*) #"\.")]
-                                           (if (>= (count ns-parts) 2)
-                                             (nth ns-parts (- (count ns-parts) 2))
-                                             (throw (ex-info "Unable to determine CCTX name from namespace"
-                                                             {:namespace (str *ns*)}))))) "rev-parse" "--is-inside-work-tree")]
+  (let [{:keys [exit out err]} (git-cmd "rev-parse" "--is-inside-work-tree")]
     (println "in-git-repo? exit code:" exit)
     (println "in-git-repo? stdout:" out)
     (println "in-git-repo? stderr:" err)
