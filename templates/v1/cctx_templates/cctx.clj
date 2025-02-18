@@ -167,14 +167,48 @@
       (println "Rollback script not found. Manual rollback may be necessary."))))
 
 (comment
-  ;; Example REPL usage
+  ;; Core validation and setup
   (validate-project-root)
-  ;; Test dry run
+  (get-project-root)
+  (in-container?)
+  
+  ;; Git operations testing
+  (git-status-clean?)
+  (in-git-repo?)
+  (git-cmd "status")
+  (git-cmd "branch")
+  
+  ;; Change spec inspection
+  (def sample-change (first (:changes change-spec)))
+  (println "Change spec:" (pr-str change-spec))
+  (keys change-spec)
+  
+  ;; Dry run testing
+  (dry-run?)
+  (binding [change-spec (assoc change-spec :dry-run true)]
+    (validate-and-transact!))
+  
+  ;; Individual change testing
+  (transact-change sample-change)
+  
+  ;; Rollback testing
+  (create-rollback-script)
+  (io/file (str current-dir "/rollback.sh"))
+  
+  ;; Environment inspection
+  (System/getProperty "user.dir")
+  (System/getenv)
+  
+  ;; Path debugging
+  {:project-root project-root
+   :container-project-root container-project-root
+   :current-dir current-dir
+   :tx-project-root tx-project-root}
+  
+  ;; Full transaction test
   (validate-and-transact!)
-  ;; Run specific changes
-  (transact-change (first (:changes change-spec)))
-  ;; Development scratch pad
-  ,)
+  (rollback!)
+)
 
 ;; Comments and Development Notes
 ;; ============================
