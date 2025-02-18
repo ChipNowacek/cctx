@@ -75,9 +75,14 @@
 
 (defn git-status-clean? []
   (if (in-git-repo?)
-    (let [{:keys [exit out err]} (git-cmd "status" "--porcelain")]
+    (let [{:keys [exit out err]} (git-cmd "status" "--porcelain" "--untracked-files=all")]
       (if (zero? exit)
-        (empty? out)
+        (let [untracked-count (count (str/split-lines out))]
+          (if (<= untracked-count 2)
+            true
+            (do
+              (println "Warning: More than 2 untracked files found. Please commit or stash changes before proceeding.")
+              false)))
         (do
           (println "Warning: Git command failed. Error:" err)
           false)))
