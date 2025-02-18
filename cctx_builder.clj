@@ -132,18 +132,32 @@
                           (:cctxs-dir project-config)
                           snake-name)
         cctx-template-path (str "templates/" template-version "/cctx_templates/cctx.clj")
+        readme-template-path (str "templates/" template-version "/cctx_templates/README.md")
         cctx-template (slurp (io/file cctx-template-path))
+        readme-template (slurp (io/file readme-template-path))
         spec (:spec template-data)
-        cctx-content (-> cctx-template
-                         (str/replace "{{namespace}}" (str "dev.cctx.cctxs." cctx-name ".cctx"))
-                         (str/replace "{{project-root}}" (:project-root project-config))
-                         (str/replace "{{container-project-root}}" container-project-root)
-                         (str/replace "{{title}}" (:title spec))
-                         (str/replace "{{description}}" (:description spec))
-                         (str/replace "{{changes}}" (pr-str (:changes spec)))
-                         (str/replace "{{dry-run}}" (str (:dry-run spec false)))
-                         (str/replace "{{rollback}}" (str (:rollback spec true)))
-                         (str/replace "{{requires}}" (pr-str (:requires spec []))))]
+        tx-project-root (if (not (str/blank? container-project-root))
+                          container-project-root
+                          (:project-root project-config))
+        tx-cctx-dir (str tx-project-root "/" (:cctxs-dir project-config) "/" snake-name)
+        namespace (str (str/replace (:cctxs-dir project-config) "/" ".") "." cctx-name ".cctx")
+        replace-map {"{{current-dir}}" tx-cctx-dir
+                     "{{namespace}}" namespace
+                     "{{cctx-name}}" cctx-name
+                     "{{cctx-dir}}" (:cctx-dir project-config)
+                     "{{cctxs-dir}}" (:cctxs-dir project-config)
+                     "{{project-root}}" (:project-root project-config)
+                     "{{container-project-root}}" container-project-root
+                     "{{tx-project-root}}" tx-project-root
+                     "{{title}}" (pr-str (:title spec))
+                     "{{description}}" (pr-str (:description spec))
+                     "{{changes}}" (pr-str (:changes spec))
+                     "{{dry-run}}" (str (:dry-run spec false))
+                     "{{rollback}}" (str (:rollback spec true))
+                     "{{requires}}" (pr-str (:requires spec []))
+                     "{{project}}" project}
+        cctx-content (reduce-kv str/replace cctx-template replace-map)
+        readme-content (reduce-kv str/replace readme-template replace-map)]
     (when (.exists cctx-dir)
       (if overwrite-existing
         (delete-directory-recursive cctx-dir)
@@ -151,7 +165,8 @@
                         {:cctx-name cctx-name
                          :cctx-dir (.getPath cctx-dir)}))))
     (.mkdirs cctx-dir)
-    (spit (io/file cctx-dir "cctx.clj") cctx-content)))
+    (spit (io/file cctx-dir "cctx.clj") cctx-content)
+    (spit (io/file cctx-dir "README.md") readme-content)))
 
 (defn -main [& args]
   (if (< (count args) 1)

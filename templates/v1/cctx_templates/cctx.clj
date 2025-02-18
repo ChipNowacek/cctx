@@ -5,6 +5,10 @@
 
 (def project-root "{{project-root}}")
 (def container-project-root "{{container-project-root}}")
+(def cctxs-dir "{{cctxs-dir}}")
+(def cctx-name "{{cctx-name}}") 
+(def current-dir "{{current-dir}}")
+(def tx-project-root "{{tx-project-root}}")
 
 (defn get-project-root []
   (System/getenv "PROJECT_ROOT"))
@@ -15,15 +19,14 @@
   (let [env-root (get-project-root)]
     (when-not env-root
       (throw (ex-info "PROJECT_ROOT environment variable must be set" {})))
-    (when-not (or (= env-root project-root)
-                  (= env-root container-project-root))
-      (throw (ex-info "PROJECT_ROOT does not match CCTX project root or container project root"
-                      {:expected [project-root container-project-root]
+    (when-not (= env-root tx-project-root)
+      (throw (ex-info "PROJECT_ROOT does not match project root"
+                      {:expected [tx-project-root]
                        :actual env-root})))))
 
 (def change-spec
-  {:title "{{title}}"
-   :description "{{description}}"
+  {:title {{title}}
+   :description {{description}}
    :changes {{changes}}
    :dry-run {{dry-run}}
    :rollback {{rollback}}
@@ -52,15 +55,13 @@
 (defn in-container? []
   (not (str/blank? container-project-root)))
 
-(def git-dir (if (in-container?) container-project-root project-root))
-
 (defn set-safe-directory []
-  (let [{:keys [exit err]} (sh "git" "config" "--global" "--add" "safe.directory" git-dir)]
+  (let [{:keys [exit err]} (sh "git" "config" "--global" "--add" "safe.directory" tx-project-root)]
     (when-not (zero? exit)
       (println "Warning: Failed to set safe directory. Error:" err))))
 
 (defn git-cmd [& args]
-  (let [full-command (concat ["git" "-C" git-dir] args)
+  (let [full-command (concat ["git" "-C" tx-project-root] args)
         _ (println "Executing git command:" (str/join " " full-command))
         result (apply sh full-command)]
     (if (and (= 128 (:exit result))
@@ -73,7 +74,13 @@
 
 (defn in-git-repo? []
   (set-safe-directory)  ; Set safe directory before checking
-  (let [{:keys [exit out err]} (git-cmd "rev-parse" "--is-inside-work-tree")]
+  (let [{:keys [exit out err]} 
+        (git-cmd(defn get-cctx-name []
+                                         (let [ns-parts (str/split (str *ns*) #"\.")]
+                                           (if (>= (count ns-parts) 2)
+                                             (nth ns-parts (- (count ns-parts) 2))
+                                             (throw (ex-info "Unable to determine CCTX name from namespace"
+                                                             {:namespace (str *ns*)}))))) "rev-parse" "--is-inside-work-tree")]
     (println "in-git-repo? exit code:" exit)
     (println "in-git-repo? stdout:" out)
     (println "in-git-repo? stderr:" err)
@@ -91,18 +98,19 @@
       (println "Warning: Not in a git repository. Skipping git status check.")
       true)))
 
+
 (defn create-rollback-script []
-  (let [cctx-name (last (str/split (str *ns*) #"\."))
-        current-branch (:out (git-cmd "rev-parse" "--abbrev-ref" "HEAD"))]
+  (let [current-branch (:out (git-cmd "rev-parse" "--abbrev-ref" "HEAD"))]
     (when (str/blank? current-branch)
       (throw (ex-info "Unable to determine current branch. CCTX cannot proceed without rollback capability." 
                       {:cctx-name cctx-name})))
-    (let [rollback-script (str container-project-root "/rollback_" cctx-name ".sh")
+    (let [rollback-script (str current-dir "/rollback_" cctx-name ".sh")
           script-content (str "#!/bin/bash\n"
-                              "cd " container-project-root "\n"
+                              "cd " tx-project-root "\n"
                               "git checkout " current-branch "\n"
                               "git branch -D " cctx-name "\n")]
       (spit rollback-script script-content)
+      (.setExecutable (io/file rollback-script) true)
       (println "Rollback script created:" rollback-script)
       rollback-script)))
 
@@ -115,21 +123,30 @@
     (when-not (zero? exit)
       (throw (ex-info "Rollback script failed" {:exit exit :out out :err err})))))
 
+(defn create-and-switch-branch [branch-name]
+  (let [{:keys [exit out err]} (git-cmd "checkout" "-b" branch-name)]
+    (if (zero? exit)
+      (println "Created and switched to new branch:" branch-name)
+      (throw (ex-info "Failed to create and switch to new branch"
+                      {:branch branch-name
+                       :exit exit
+                       :out out
+                       :err err})))))
+
 (defn validate-and-transact! []
   (validate-project-root)
   (println "Container project root:" container-project-root)
-  (println "Current working directory:" (System/getProperty "user.dir"))
+  (println "Current working directory:" current-dir)
   (println "In container:" (in-container?))
   (set-safe-directory)  ; Set safe directory before any git operations
   (if-not (in-git-repo?)
     (throw (ex-info "Not in a git repository. CCTX cannot proceed." 
-                    {:git-dir git-dir
-                     :current-dir (System/getProperty "user.dir")
+                    {:tx-project-root tx-project-root
+                     :current-dir current-dir
                      :in-container (in-container?)}))
     (if-not (git-status-clean?)
       (throw (ex-info "Git working tree is not clean. Please commit or stash changes before proceeding." {}))
-      (let [cctx-name (last (str/split (str *ns*) #"\.")) 
-            rollback-script (try
+      (let [rollback-script (try
                               (create-rollback-script)
                               (catch Exception e
                                 (println "Error creating rollback script:" (.getMessage e))
@@ -152,8 +169,7 @@
             (throw (ex-info "Transaction failed and rolled back" {:cause e}))))))))
 
 (defn rollback! []
-  (let [cctx-name (last (str/split (str *ns*) #"\."))
-        rollback-script (str "rollback_" cctx-name ".sh")]
+  (let [rollback-script (str current-dir "/rollback_" cctx-name ".sh")]
     (if (.exists (io/file rollback-script))
       (do
         (run-rollback-script rollback-script)
