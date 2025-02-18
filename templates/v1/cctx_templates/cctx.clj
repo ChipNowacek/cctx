@@ -3,12 +3,10 @@
             [clojure.string :as str]
             [clojure.java.shell :refer [sh]]))
 
-(def project-root "{{project-root}}")
-(def container-project-root "{{container-project-root}}")
-(def cctxs-dir "{{cctxs-dir}}")
-(def cctx-name "{{cctx-name}}") 
-(def current-dir "{{current-dir}}")
 (def tx-project-root "{{tx-project-root}}")
+(def cctxs-dir "{{cctxs-dir}}")
+(def cctx-name "{{cctx-name}}")
+(def current-dir "{{current-dir}}")
 
 (defn get-project-root []
   (System/getenv "PROJECT_ROOT"))
@@ -21,7 +19,7 @@
       (throw (ex-info "PROJECT_ROOT environment variable must be set" {})))
     (when-not (= env-root tx-project-root)
       (throw (ex-info "PROJECT_ROOT does not match project root"
-                      {:expected [tx-project-root]
+                      {:expected tx-project-root
                        :actual env-root})))))
 
 (def change-spec
@@ -38,8 +36,8 @@
     :script (when (:executable change)
              (-> (Runtime/getRuntime)
                  (.exec (into-array String 
-                         [(str project-root "/" (:path change))]))))
-    :add-file (let [file-path (str project-root "/" (:path change))
+                         [(str tx-project-root "/" (:path change))]))))
+    :add-file (let [file-path (str tx-project-root "/" (:path change))
                    file (io/file file-path)]
                (.mkdirs (.getParentFile file))
                (spit file (:template change))
@@ -53,7 +51,7 @@
   (:dry-run change-spec))
 
 (defn in-container? []
-  (not (str/blank? container-project-root)))
+  (not (str/blank? tx-project-root)))
 
 (defn set-safe-directory []
   (let [{:keys [exit err]} (sh "git" "config" "--global" "--add" "safe.directory" tx-project-root)]
@@ -156,7 +154,7 @@
 
 (defn validate-and-transact! []
   (validate-project-root)
-  (println "Container project root:" container-project-root)
+  (println "Transaction project root:" tx-project-root)
   (println "Current working directory:" current-dir)
   (println "In container:" (in-container?))
   (set-safe-directory)  ; Set safe directory before any git operations
@@ -176,7 +174,7 @@
         (try
           (create-and-switch-branch cctx-name)
           (println (str "Description: " (:description change-spec))) 
-          (println (str "Container project root:" container-project-root))
+          (println (str "Transaction project root:" tx-project-root))
           (println (str "Change spec: " (:changes change-spec)))
           (println (str "Current working directory:" (System/getProperty "user.dir")))
           (if (dry-run?)
@@ -222,7 +220,7 @@
   
   ;; Environment info
   {:current-dir current-dir
-   :project-root project-root
+   :project-root tx-project-root
    :tx-project-root tx-project-root
    :manifest-files (load-manifest)}
   

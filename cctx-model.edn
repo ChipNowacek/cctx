@@ -24,7 +24,12 @@
    :prompt-md ""
    :response-md ""}]}
 :conversation
-[{:date "2025-02-18T03:41:29-06:00" :author "Chip" :audience "" :audience-key nil :confidential-audience nil :confidential-author nil
+[{:date "2025-02-18T09:08:06-06:00" :author "Chip" :audience "Claude 3.5 Sonnet (Preview)" :audience-key :ai-ide :confidential-author nil
+ :md ""
+ :prompt-md "I've added :dev-in-container? and :container-project-root to `projects.edn`. Please remove `--container-project-root` as a command line option. You'll have to be careful with this change. Dealing with container config in the project file simplifies many things. Please review. If it needs to be done in stages, we can do that. If all at once is better, let's do that. Take your time.
+"
+ :response-md ""}
+{:date "2025-02-18T03:41:29-06:00" :author "Chip" :audience "" :audience-key nil :confidential-audience nil :confidential-author nil
  :md "Branch creaton and rollback of a no-op cctx is working. It's taken a minute. We'll do real changes tomorrow. We'll see if the 5-day investment in cctx is worth it."
  :prompt-md ""
  :response-md ""}

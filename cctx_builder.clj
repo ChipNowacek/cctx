@@ -13,15 +13,22 @@
    [:projects
     [:map-of
      :string
-     [:map
-      [:name string?]
-      [:project-root string?]
-      [:dev-in-container? boolean?]
-      [:container-project-root {:optional true} string?]
-      [:cctx-dir string?]
-      [:cctxs-dir string?]
-      [:project-has-templates boolean?]
-      [:project-templates-dir {:optional true} string?]]]]])
+     [:and
+      [:map
+       [:name string?]
+       [:project-root string?]
+       [:dev-in-container? boolean?]
+       [:container-project-root {:optional true} string?]
+       [:cctx-dir string?]
+       [:cctxs-dir string?]
+       [:project-has-templates boolean?]
+       [:project-templates-dir {:optional true} string?]]
+      [:fn
+       {:error/message "container-project-root is required when dev-in-container? is true"}
+       (fn [{:keys [dev-in-container? container-project-root]}]
+         (if dev-in-container?
+           (boolean container-project-root)
+           true))]]]]])
 
 (defn load-project-config [projects-file project-name]
   (let [config (-> projects-file slurp edn/read-string)
@@ -42,15 +49,13 @@
   {:coerce {:template :keyword
             :template-version :string
             :project :string
-            :overwrite-existing :boolean
-            :container-project-root :string}
-   :require [:template :template-version :projects :project :container-project-root]
+            :overwrite-existing :boolean}
+   :require [:template :template-version :projects :project]
    :spec {:template {:desc "Template to use"}
           :template-version {:desc "Template version"}
           :projects {:desc "Path to projects config file"}
           :project {:desc "Project name from config"}
-          :overwrite-existing {:desc "Delete existing CCTX if it exists"}
-          :container-project-root {:desc "Project root path inside the container"}}})
+          :overwrite-existing {:desc "Delete existing CCTX if it exists"}}})
 
 (defn find-templates-dir [project-config version]
   (let [project-root (:project-root project-config)
@@ -128,40 +133,43 @@
 (defn apply-replacements [content replace-map]
   (reduce (fn [acc [k v]] (str/replace acc k v)) content replace-map))
 
-(defn create-cctx! [cctx-name {:keys [template template-version project projects overwrite-existing container-project-root] :as opts}]
+(defn create-cctx! [cctx-name {:keys [template template-version project projects overwrite-existing] :as opts}]
   (let [project-config (load-project-config projects project)
         template-data (load-template project-config template template-version)
         snake-name (kebab->snake cctx-name)
         project-root (:project-root project-config)
         cctxs-dir (:cctxs-dir project-config)
         cctx-fully-qualified-name (str project-root "/" cctxs-dir "/" snake-name)
-        cctx-dir (io/file (:project-root project-config)
-                          (:cctxs-dir project-config)
-                          snake-name)
+        cctx-dir (io/file project-root cctxs-dir snake-name)
         cctx-template-path (str "templates/" template-version "/cctx_templates/cctx.clj")
         readme-template-path (str "templates/" template-version "/cctx_templates/README.md")
         cctx-template (slurp (io/file cctx-template-path))
         readme-template (slurp (io/file readme-template-path))
         spec (:spec template-data)
-        is-container (not (str/blank? container-project-root))
-        tx-project-root (if is-container container-project-root project-root)
-        tx-cctx-dir (str tx-project-root "/" (:cctxs-dir project-config) "/" snake-name)
-        namespace (str (str/replace (:cctxs-dir project-config) "/" ".") "." cctx-name ".cctx")
+        is-container (:dev-in-container? project-config)
+        container-root (when is-container
+                        (or (:container-project-root project-config)
+                            (throw (ex-info "Container project root required when dev-in-container? is true"
+                                          {:project project
+                                           :project-config project-config}))))
+        tx-project-root (if is-container container-root project-root)
+        tx-cctx-dir (str tx-project-root "/" cctxs-dir "/" snake-name)
+        namespace (str (str/replace cctxs-dir "/" ".") "." cctx-name ".cctx")
         replace-map {"{{current-dir}}" tx-cctx-dir
-                     "{{namespace}}" namespace
-                     "{{cctx-name}}" cctx-name
-                     "{{cctx-dir}}" (:cctx-dir project-config)
-                     "{{cctxs-dir}}" cctxs-dir
-                     "{{project-root}}" (:project-root project-config)
-                     "{{container-project-root}}" container-project-root
-                     "{{tx-project-root}}" tx-project-root
-                     "{{title}}" (pr-str (:title spec))
-                     "{{description}}" (pr-str (:description spec))
-                     "{{changes}}" (pr-str (:changes spec))
-                     "{{dry-run}}" (str (:dry-run spec false))
-                     "{{rollback}}" (str (:rollback spec true))
-                     "{{requires}}" (pr-str (:requires spec []))
-                     "{{project}}" project}
+                    "{{namespace}}" namespace
+                    "{{cctx-name}}" cctx-name
+                    "{{cctx-dir}}" (:cctx-dir project-config)
+                    "{{cctxs-dir}}" cctxs-dir
+                    "{{project-root}}" project-root
+                    "{{container-project-root}}" (or container-root "")
+                    "{{tx-project-root}}" tx-project-root
+                    "{{title}}" (pr-str (:title spec))
+                    "{{description}}" (pr-str (:description spec))
+                    "{{changes}}" (pr-str (:changes spec))
+                    "{{dry-run}}" (str (:dry-run spec false))
+                    "{{rollback}}" (str (:rollback spec true))
+                    "{{requires}}" (pr-str (:requires spec []))
+                    "{{project}}" project}
         cctx-content (reduce-kv str/replace cctx-template replace-map)
         container-regex #"(?s)\{\{#container\}\}(.*?)\{\{/container\}\}"
         non-container-regex #"(?s)\{\{\^container\}\}(.*?)\{\{/\^container\}\}"
@@ -193,7 +201,6 @@
               --template-version <version> 
               --projects <config-file> 
               --project <project-name> 
-              --container-project-root <container-path>
               --overwrite-existing")
     (let [opts (cli/parse-opts args cli-opts)
           name (first args)]
