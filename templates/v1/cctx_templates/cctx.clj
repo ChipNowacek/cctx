@@ -73,15 +73,40 @@
     (println "in-git-repo? stderr:" err)
     (zero? exit)))
 
+(defn get-relative-path [full-path]
+  (let [cctx-path (-> current-dir
+                      (str/replace tx-project-root "")
+                      (str/replace #"^/" ""))]
+    (when (str/starts-with? full-path cctx-path)
+      (-> full-path
+          (str/replace (str cctx-path "/") "")))))
+
+(defn load-manifest []
+  (let [manifest-file (io/file current-dir ".manifest")]
+    (when (.exists manifest-file)
+      (-> manifest-file slurp str/split-lines set))))
+
+(defn expected-files? [untracked-files]
+  (let [manifest-files (load-manifest)]
+    (if manifest-files
+      (->> untracked-files
+           (keep get-relative-path)
+           (every? manifest-files))
+      false)))
+
 (defn git-status-clean? []
   (if (in-git-repo?)
     (let [{:keys [exit out err]} (git-cmd "status" "--porcelain" "--untracked-files=all")]
       (if (zero? exit)
-        (let [untracked-count (count (str/split-lines out))]
-          (if (<= untracked-count 2)
+        (let [untracked-files (->> (str/split-lines out)
+                                  (map #(str/replace % #"^\?\? " "")))]
+          (if (expected-files? untracked-files)
             true
             (do
-              (println "Warning: More than 2 untracked files found. Only `cctx.clj` and `README.md` are expected. Please commit or stash changes before proceeding.")
+              (println "Warning: Unexpected files found. Only files listed in .manifest are allowed.")
+              (println "Unexpected files:" (str/join ", " 
+                        (->> untracked-files
+                             (remove #(expected-files? [%])))))
               false)))
         (do
           (println "Warning: Git command failed. Error:" err)
@@ -172,42 +197,49 @@
   (get-project-root)
   (in-container?)
   
-  ;; Git operations testing
+  ;; Git and manifest testing
   (git-status-clean?)
   (in-git-repo?)
-  (git-cmd "status")
-  (git-cmd "branch")
+  (load-manifest)
+  (get-relative-path "dev/cctx/cctxs/test_nothing/cctx.clj")
+  
+  ;; Path debugging
+  (let [test-path "dev/cctx/cctxs/test_nothing/cctx.clj"]
+    {:full-path test-path
+     :relative-path (get-relative-path test-path)
+     :in-manifest? (expected-files? [test-path])})
+  
+  ;; Git operations
+  (git-cmd "status" "--porcelain" "--untracked-files=all")
+  (git-cmd "rev-parse" "--is-inside-work-tree")
+  (git-cmd "rev-parse" "--show-toplevel")
+  
+  ;; Environment info
+  {:current-dir current-dir
+   :project-root project-root
+   :tx-project-root tx-project-root
+   :manifest-files (load-manifest)}
   
   ;; Change spec inspection
   (def sample-change (first (:changes change-spec)))
-  (println "Change spec:" (pr-str change-spec))
   (keys change-spec)
+  (:changes change-spec)
   
-  ;; Dry run testing
-  (dry-run?)
+  ;; Transaction testing
   (binding [change-spec (assoc change-spec :dry-run true)]
     (validate-and-transact!))
-  
-  ;; Individual change testing
   (transact-change sample-change)
   
   ;; Rollback testing
   (create-rollback-script)
-  (io/file (str current-dir "/rollback.sh"))
+  (.exists (io/file (str current-dir "/rollback.sh")))
   
-  ;; Environment inspection
-  (System/getProperty "user.dir")
-  (System/getenv)
-  
-  ;; Path debugging
-  {:project-root project-root
-   :container-project-root container-project-root
-   :current-dir current-dir
-   :tx-project-root tx-project-root}
-  
-  ;; Full transaction test
-  (validate-and-transact!)
-  (rollback!)
+  ;; Full workflow test (dry run)
+  (do
+    (validate-project-root)
+    (git-status-clean?)
+    (validate-and-transact!)
+    (rollback!))
 )
 
 ;; Comments and Development Notes

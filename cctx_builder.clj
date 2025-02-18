@@ -169,7 +169,10 @@
                              (str/replace non-container-regex (if is-container "" "$1"))
                              (apply-replacements replace-map)
                              (str/replace #"\n{3,}" "\n\n")))
-        readme-content (process-readme readme-template)]
+        readme-content (process-readme readme-template)
+        manifest-content (str/join "\n" ["cctx.clj"
+                                         "README.md"
+                                         ".manifest"])]
     (when (.exists cctx-dir)
       (if overwrite-existing
         (delete-directory-recursive cctx-dir)
@@ -178,7 +181,8 @@
                          :cctx-dir (.getPath cctx-dir)}))))
     (.mkdirs cctx-dir)
     (spit (io/file cctx-dir "cctx.clj") cctx-content)
-    (spit (io/file cctx-dir "README.md") readme-content)))
+    (spit (io/file cctx-dir "README.md") readme-content)
+    (spit (io/file cctx-dir ".manifest") manifest-content)))
 
 (defn -main [& args]
   (if (< (count args) 1)
