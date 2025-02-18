@@ -159,7 +159,7 @@
             (throw (ex-info "Transaction failed and rolled back" {:cause e}))))))))
 
 (defn rollback! []
-  (let [rollback-script (str current-dir "/rollback_" cctx-name ".sh")]
+  (let [rollback-script (str current-dir "/rollback.sh")]
     (if (.exists (io/file rollback-script))
       (do
         (run-rollback-script rollback-script)
