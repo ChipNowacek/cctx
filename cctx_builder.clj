@@ -181,10 +181,7 @@
                              (apply-replacements replace-map)
                              (str/replace #"\n{3,}" "\n\n")))
         readme-content (process-readme readme-template)
-        manifest-content (str/join "\n" ["cctx.clj"
-                                         "README.md"
-                                         ".manifest"])
-        files #{"cctx.clj" "README.md" ".cctx-state.edn" ".manifest"}]
+        files #{"cctx.clj" "README.md" ".cctx-state.edn"}]
     (when (.exists cctx-dir)
       (if overwrite-existing
         (delete-directory-recursive cctx-dir)
@@ -194,7 +191,6 @@
     (.mkdirs cctx-dir)
     (spit (io/file cctx-dir "cctx.clj") cctx-content)
     (spit (io/file cctx-dir "README.md") readme-content)
-    (spit (io/file cctx-dir ".manifest") manifest-content)
     
     ; We no longer need to create a separate state.clj file
     ; or initialize the state here. The CCTX will handle its own initialization.

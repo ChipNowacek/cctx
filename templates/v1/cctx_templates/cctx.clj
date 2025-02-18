@@ -119,9 +119,19 @@
       (str/trim out))))
 
 (defn stash-changes [description]
-  (let [{:keys [exit out]} (git-cmd "stash" "push" "-m" description)]
-    (when (zero? exit)
-      (str/trim (re-find #"stash@\{[0-9]+\}" out)))))
+  (let [{:keys [exit out err]} (git-cmd "stash" "push" "-m" description)]
+    (if (zero? exit)
+      (if (str/blank? out)
+        (do
+          (println "Warning: Git stash succeeded but produced no output.")
+          nil)
+        (or (re-find #"stash@\{[0-9]+\}" out)
+            (do
+              (println "Warning: Unexpected stash output format:" out)
+              nil)))
+      (do
+        (println "Error during git stash:" err)
+        nil))))
 
 (defn apply-stash [stash-ref]
   (let [{:keys [exit]} (git-cmd "stash" "apply" stash-ref)]
@@ -153,7 +163,7 @@
     (let [state (load-state)]
       (if state
         state  ; Return existing state if found
-        (let [files #{"cctx.clj" "README.md" ".cctx-state.edn" ".manifest"}]
+        (let [files #{"cctx.clj" "README.md" ".cctx-state.edn"}]
           (println "Initializing state with files:" files)
           (try
             (init-state! files)
@@ -179,10 +189,14 @@
   
   (let [orig-branch (current-branch)]
     (when (and orig-branch (not= orig-branch cctx-name))
-      (when-let [stash-ref (stash-changes (str "CCTX stash for " cctx-name))]
-        (update-state! assoc
-                             :original-branch orig-branch
-                             :stashes (conj (:stashes (load-state)) stash-ref))))
+      (println "Stashing changes before switching branches")
+      (if-let [stash-ref (stash-changes (str "CCTX stash for " cctx-name))]
+        (do
+          (println "Changes stashed:" stash-ref)
+          (update-state! assoc
+                         :original-branch orig-branch
+                         :stashes (conj (:stashes (load-state)) stash-ref)))
+        (println "No changes to stash or stash failed")))
     
     (when (ensure-branch)
       (update-state! assoc :status :active))))
@@ -214,60 +228,18 @@
   (when (str/starts-with? full-path current-dir)
     (str/replace full-path (str current-dir "/") "")))
 
-(defn load-manifest []
-  (let [manifest-file (io/file current-dir ".manifest")]
-    (when (.exists manifest-file)
-      (let [manifest-entries (-> manifest-file slurp str/split-lines)]
-        (->> manifest-entries
-             (map #(str current-dir "/" %))
-             set)))))
-
-(defn expected-files? [untracked-files]
-  (let [manifest-files (load-manifest)]
-    (if manifest-files
-      (every? manifest-files untracked-files)
-      false)))
-
-(defn git-status-clean? []
-  (if (in-git-repo?)
-    (let [{:keys [exit out err]} (git-cmd "status" "--porcelain" "--untracked-files=all")]
-      (if (zero? exit)
-        (let [untracked-files (->> (str/split-lines out)
-                                  (map #(str/replace % #"^\?\? " ""))
-                                  (map #(str tx-project-root "/" %)))]
-          (if (expected-files? untracked-files)
-            true
-            (do
-              (println "Warning: Unexpected files found. Only files listed in .manifest are allowed.")
-              (println "Unexpected files:" (str/join ", " 
-                        (->> untracked-files
-                             (remove #(expected-files? [%]))
-                             (map #(str/replace % (str tx-project-root "/") "")))))
-              false)))
-        (do
-          (println "Warning: Git command failed. Error:" err)
-          false)))
-    (do
-      (println "Warning: Not in a git repository.")
-      false)))
-
 (defn create-rollback-script []
   (let [current-branch (:out (git-cmd "rev-parse" "--abbrev-ref" "HEAD"))]
     (when (str/blank? current-branch)
       (throw (ex-info "Unable to determine current branch. CCTX cannot proceed without rollback capability." 
                       {:cctx-name cctx-name})))
     (let [rollback-script (str current-dir "/rollback.sh")
-          manifest-file (io/file current-dir ".manifest")
           script-content (str "#!/bin/bash\n"
                             "# Switch back and clean up branch\n"
                             "git checkout " current-branch "\n"
                             "git branch -D " cctx-name "\n")]
       (spit rollback-script script-content)
       (.setExecutable (io/file rollback-script) true)
-      ;; Update manifest to include rollback script
-      (when (.exists manifest-file)
-        (let [current-manifest (str/split-lines (slurp manifest-file))]
-          (spit manifest-file (str/join "\n" (conj current-manifest "rollback.sh")))))
       (println "Rollback script created:" rollback-script)
       rollback-script)))
 
@@ -289,6 +261,28 @@
                        :exit exit
                        :out out
                        :err err})))))
+
+(defn git-status-clean? []
+  (let [{:keys [exit out]} (git-cmd "status" "--porcelain" "--untracked-files=all")]
+    (if (zero? exit)
+      (let [state (load-state)
+            cctx-files (or (:files state) #{})
+            reported-files (set (map #(str/replace % #"^\?\? " "") (str/split-lines out)))
+            relative-reported-files (set (map #(str/replace-first % (str tx-project-root "/") "") reported-files))
+            relative-cctx-files (set (map #(str/replace-first % (str current-dir "/") "") cctx-files))]
+        (if (empty? reported-files)
+          true
+          (if (= relative-reported-files relative-cctx-files)
+            true
+            (do
+              (println "Warning: Unexpected files found. Only files listed in .cctx-state.edn are allowed.")
+              (println "Unexpected files:" (str/join ", " (remove relative-cctx-files relative-reported-files)))
+              (println "CCTX files:" (str/join ", " relative-cctx-files))
+              (println "Reported files:" (str/join ", " relative-reported-files))
+              false))))
+      (do
+        (println "Warning: Git command failed. Assuming working tree is not clean.")
+        false))))
 
 (defn validate-and-transact! []
   (validate-project-root)
@@ -340,21 +334,18 @@
   (print in-container?)
   
   ;; State management testing
-  (init-state! #{"cctx.clj" "README.md" ".cctx-state.edn" ".manifest"})
+  (init-state! #{"cctx.clj" "README.md" ".cctx-state.edn"})
   (load-state)
   (update-state! assoc :status :active)
   
   ;; Git and manifest testing
-  (git-status-clean?)
   (in-git-repo?)
-  (load-manifest)
   (get-relative-path "dev/cctx/cctxs/test_nothing/cctx.clj")
   
   ;; Path debugging
   (let [test-path "dev/cctx/cctxs/test_nothing/cctx.clj"]
     {:full-path test-path
-     :relative-path (get-relative-path test-path)
-     :in-manifest? (expected-files? [test-path])})
+     :relative-path (get-relative-path test-path)})
   
   ;; Git operations
   (git-cmd "status" "--porcelain" "--untracked-files=all")
@@ -364,8 +355,7 @@
   ;; Environment info
   {:current-dir current-dir
    :project-root tx-project-root
-   :tx-project-root tx-project-root
-   :manifest-files (load-manifest)}
+   :tx-project-root tx-project-root}
   
   ;; Change spec inspection
   (def sample-change (first (:changes change-spec)))
@@ -411,19 +401,12 @@
   ;; Print detailed state explanation if invalid
   (when-let [explanation (m/explain cctx-state-schema (load-state))]
     (println "State validation errors:" (me/humanize explanation)))
+  
+  ;; Test git-status-clean? with more logging
+  (let [result (git-status-clean?)]
+    (println "git-status-clean? result:" result)
+    (println "Current state:" (load-state))
+    (println "Current directory:" current-dir)
+    (println "Project root:" tx-project-root)
+    result)
 )
-
-;; Comments and Development Notes
-;; ============================
-;; Creation Date: 2025-02-17 14:39:06
-;; Template: no-op (version v1)
-;;
-;; Implementation Notes:
-;; -------------------
-;; 
-;; Testing Notes:
-;; ------------
-;; 
-;; Outstanding Issues:
-;; -----(set-project-root! "/path/to/project")------------
-;;
