@@ -1,10 +1,12 @@
 # Codebase Change Transaction (CCTX)
 
-Bringing ACID to the coding experience (if possible). It's not clear if this project makes any sense.
+Bringing ACID to the coding experience (if possible). 
 
 ## Purpose
 
 The primary purpose of a CCTX is to encourage thoughtful, structured changes to the codebase based on developer sanity, clarity, and quiet judgement. A CCTX is to the intention of the developer what a `git commit` is to a codebase or a transaction is to a database; as ACID as it can get.
+
+And...it's not clear if this project makes any sense. To the extent there are patterns in codebase changes, maybe we can capture them. Maybe macro-esque. Dunno.
 
 ## Workflow
 
