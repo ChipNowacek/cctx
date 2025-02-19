@@ -90,10 +90,15 @@
 
 (defn load-template-schema [templates-dir version]
   (let [schema-file (io/file templates-dir "schema.edn")]
+    (println "Attempting to load schema from:" (.getAbsolutePath schema-file))
     (if (.exists schema-file)
-      (let [schema (-> schema-file slurp edn/read-string)
-            validator (m/validator schema)]
-        validator)
+      (let [schema (-> schema-file slurp edn/read-string)]
+        (println "Loaded schema:" schema)
+        (try
+          (m/validator schema)  ; Changed from m/schema to m/validator
+          (catch Exception e
+            (println "Error creating Malli schema:" (.getMessage e))
+            (throw (ex-info "Invalid schema definition" {:schema schema :error (.getMessage e)})))))
       (throw (ex-info "Template schema not found"
                       {:version version
                        :schema-path (.getPath schema-file)})))))
@@ -109,7 +114,7 @@
             validate-templates (load-template-schema templates-dir version)]
         (if (.exists template-file)
           (let [templates (-> template-file slurp edn/read-string)]
-            (if-not (validate-templates templates)
+            (if-not (validate-templates templates)  ; Changed from (validate-templates templates) to (validate-templates templates)
               (throw (ex-info "Invalid templates configuration"
                               {:version version
                                :templates templates}))
@@ -149,6 +154,11 @@
   (let [response (read-line)]
     (= (str/lower-case response) "y")))
 
+(defn sanitize-cctx-name [name]
+  (-> name
+      (str/replace #"[^a-zA-Z0-9-_.]" "_")
+      (str/replace #"^[^a-zA-Z_]" "_")))
+
 (defn create-cctx! [cctx-name {:keys [template template-version project projects overwrite-existing overwrite-force] :as opts}]
   (let [project-config (load-project-config projects project)
         project-root (:project-root project-config)]
@@ -160,7 +170,8 @@
                        :project-root project-root})))
     
     (let [template-data (load-template project-config template template-version)
-          snake-name (kebab->snake cctx-name)
+          sanitized-name (sanitize-cctx-name cctx-name)
+          snake-name (kebab->snake sanitized-name)
           cctxs-dir (:cctxs-dir project-config)
           cctx-fully-qualified-name (str project-root "/" cctxs-dir "/" snake-name)
           cctx-dir (io/file project-root cctxs-dir snake-name)
@@ -177,7 +188,7 @@
                                              :project-config project-config}))))
           tx-project-root (if in-container container-root project-root)
           tx-cctx-dir (str tx-project-root "/" cctxs-dir "/" snake-name)
-          namespace (str (str/replace cctxs-dir "/" ".") "." cctx-name ".cctx")
+          namespace (str (str/replace cctxs-dir "/" ".") "." sanitized-name ".cctx")
           replace-map {"{{current-dir}}" tx-cctx-dir
                       "{{namespace}}" namespace
                       "{{cctx-name}}" cctx-name
