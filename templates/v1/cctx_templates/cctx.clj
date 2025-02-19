@@ -182,6 +182,10 @@
                 (println "Validation errors:" (me/humanize explanation)))))
           (load-state))))))
 
+(defn git-status-clean? []
+  (let [{:keys [exit out]} (git-cmd "status" "--porcelain")]
+    (and (zero? exit) (str/blank? out))))
+
 (defn activate-cctx! []
   (validate-project-root)
   (when-not (in-git-repo?)
@@ -196,7 +200,7 @@
       (update-state! assoc :original-branch orig-branch)
       
       ; Unstash changes if there's a stash for this CCTX
-      (let [stash-ref (str "stash^{/" cctx-name)}]
+      (let [stash-ref (str "stash^{/" cctx-name)]
         (when (zero? (:exit (git-cmd "rev-parse" "--verify" stash-ref)))
           (apply-stash stash-ref)
           (drop-stash stash-ref))))
@@ -254,26 +258,7 @@
                        :out out
                        :err err})))))
 
-(defn git-status-clean? []
-  (let [{:keys [exit out]} (git-cmd "status" "--porcelain" "--untracked-files=all")]
-    (if (zero? exit)
-      (let [state (load-state)
-            cctx-files (or (:files state) #{})
-            reported-files (set (map #(str/replace % #"^\?\? " "") (str/split-lines out)))
-            fully-qualified-reported-files (set (map #(str tx-project-root "/" %) reported-files))]
-        (if (empty? reported-files)
-          true
-          (if (= fully-qualified-reported-files cctx-files)
-            true
-            (do
-              (println "Warning: Unexpected files found. Only files listed in .cctx-state.edn are allowed.")
-              (println "Unexpected files:" (str/join ", " (remove cctx-files fully-qualified-reported-files)))
-              (println "CCTX files:" (str/join ", " cctx-files))
-              (println "Reported files:" (str/join ", " fully-qualified-reported-files))
-              false))))
-      (do
-        (println "Warning: Git command failed. Assuming working tree is not clean.")
-        false))))
+
 
 (defn validate-and-transact! []
   (validate-project-root)
