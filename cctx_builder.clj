@@ -5,6 +5,7 @@
             [clojure.string :as str]
             [clojure.java.io :as io]
             [clojure.edn :as edn]
+            [clojure.pprint :as pprint]
             [clojure.java.shell :refer [sh]]  ; Add this line
             [malli.core :as m]
             [malli.error :as me]))
@@ -164,7 +165,7 @@
             (cond
               (string? v) (pr-str v)
               (or (map? v) (vector? v))
-                (str/replace (with-out-str (clojure.pprint/pprint v)) #",\s*\n" "\n")
+                (str/replace (with-out-str (pprint/pprint v)) #",\s*\n" "\n")
               :else (pr-str v)))]
     (str "{\n"
          (str/join "\n"
