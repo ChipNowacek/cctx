@@ -5,6 +5,7 @@
             [clojure.string :as str]
             [clojure.java.io :as io]
             [clojure.edn :as edn]
+            [clojure.java.shell :refer [sh]]  ; Add this line
             [malli.core :as m]
             [malli.error :as me]))
 
@@ -133,68 +134,79 @@
 (defn apply-replacements [content replace-map]
   (reduce (fn [acc [k v]] (str/replace acc k v)) content replace-map))
 
+(defn git-status-clean? [repo-path]
+  (let [{:keys [exit out]} (apply sh (concat ["git" "-C" repo-path "status" "--porcelain"]))]
+    (and (zero? exit) (str/blank? out))))
+
 (defn create-cctx! [cctx-name {:keys [template template-version project projects overwrite-existing] :as opts}]
   (let [project-config (load-project-config projects project)
-        template-data (load-template project-config template template-version)
-        snake-name (kebab->snake cctx-name)
-        project-root (:project-root project-config)
-        cctxs-dir (:cctxs-dir project-config)
-        cctx-fully-qualified-name (str project-root "/" cctxs-dir "/" snake-name)
-        cctx-dir (io/file project-root cctxs-dir snake-name)
-        cctx-template-path (str "templates/" template-version "/cctx_templates/cctx.clj")
-        readme-template-path (str "templates/" template-version "/cctx_templates/README.md")
-        cctx-template (slurp (io/file cctx-template-path))
-        readme-template (slurp (io/file readme-template-path))
-        spec (:spec template-data)
-        in-container (:dev-in-container? project-config)
-        container-root (when in-container
-                        (or (:container-project-root project-config)
-                            (throw (ex-info "Container project root required when dev-in-container? is true"
-                                          {:project project
-                                           :project-config project-config}))))
-        tx-project-root (if in-container container-root project-root)
-        tx-cctx-dir (str tx-project-root "/" cctxs-dir "/" snake-name)
-        namespace (str (str/replace cctxs-dir "/" ".") "." cctx-name ".cctx")
-        replace-map {"{{current-dir}}" tx-cctx-dir
-                    "{{namespace}}" namespace
-                    "{{cctx-name}}" cctx-name
-                    "{{cctx-dir}}" (:cctx-dir project-config)
-                    "{{cctxs-dir}}" cctxs-dir
-                    "{{in-container?}}" (str in-container)
-                    ;; "{{project-root}}" project-root
-                    ;; "{{container-project-root}}" (or container-root "")
-                    "{{tx-project-root}}" tx-project-root
-                    "{{title}}" (pr-str (:title spec))
-                    "{{description}}" (pr-str (:description spec))
-                    "{{changes}}" (pr-str (:changes spec))
-                    "{{dry-run}}" (str (:dry-run spec true))
-                    "{{rollback}}" (str (:rollback spec true))
-                    "{{requires}}" (pr-str (:requires spec []))
-                    "{{project}}" project}
-        cctx-content (reduce-kv str/replace cctx-template replace-map)
-        container-regex #"(?s)\{\{#container\}\}(.*?)\{\{/container\}\}"
-        non-container-regex #"(?s)\{\{\^container\}\}(.*?)\{\{/\^container\}\}"
-        process-readme (fn [content]
-                         (-> content
-                             (str/replace container-regex (if in-container "$1" ""))
-                             (str/replace non-container-regex (if in-container "" "$1"))
-                             (apply-replacements replace-map)
-                             (str/replace #"\n{3,}" "\n\n")))
-        readme-content (process-readme readme-template)
-        files #{"cctx.clj" "README.md" ".cctx-state.edn"}]
-    (when (.exists cctx-dir)
-      (if overwrite-existing
-        (delete-directory-recursive cctx-dir)
-        (throw (ex-info "CCTX already exists"
-                        {:cctx-name cctx-name
-                         :cctx-dir (.getPath cctx-dir)}))))
-    (.mkdirs cctx-dir)
-    (spit (io/file cctx-dir "cctx.clj") cctx-content)
-    (spit (io/file cctx-dir "README.md") readme-content)
+        project-root (:project-root project-config)]
     
-    ; We no longer need to create a separate state.clj file
-    ; or initialize the state here. The CCTX will handle its own initialization.
-    ))
+    ; Check git status before proceeding
+    (when-not (git-status-clean? project-root)
+      (throw (ex-info "Git working tree is not clean. Please commit or stash changes before creating a CCTX."
+                      {:project project
+                       :project-root project-root})))
+    
+    (let [template-data (load-template project-config template template-version)
+          snake-name (kebab->snake cctx-name)
+          cctxs-dir (:cctxs-dir project-config)
+          cctx-fully-qualified-name (str project-root "/" cctxs-dir "/" snake-name)
+          cctx-dir (io/file project-root cctxs-dir snake-name)
+          cctx-template-path (str "templates/" template-version "/cctx_templates/cctx.clj")
+          readme-template-path (str "templates/" template-version "/cctx_templates/README.md")
+          cctx-template (slurp (io/file cctx-template-path))
+          readme-template (slurp (io/file readme-template-path))
+          spec (:spec template-data)
+          in-container (:dev-in-container? project-config)
+          container-root (when in-container
+                          (or (:container-project-root project-config)
+                              (throw (ex-info "Container project root required when dev-in-container? is true"
+                                            {:project project
+                                             :project-config project-config}))))
+          tx-project-root (if in-container container-root project-root)
+          tx-cctx-dir (str tx-project-root "/" cctxs-dir "/" snake-name)
+          namespace (str (str/replace cctxs-dir "/" ".") "." cctx-name ".cctx")
+          replace-map {"{{current-dir}}" tx-cctx-dir
+                      "{{namespace}}" namespace
+                      "{{cctx-name}}" cctx-name
+                      "{{cctx-dir}}" (:cctx-dir project-config)
+                      "{{cctxs-dir}}" cctxs-dir
+                      "{{in-container?}}" (str in-container)
+                      ;; "{{project-root}}" project-root
+                      ;; "{{container-project-root}}" (or container-root "")
+                      "{{tx-project-root}}" tx-project-root
+                      "{{title}}" (pr-str (:title spec))
+                      "{{description}}" (pr-str (:description spec))
+                      "{{changes}}" (pr-str (:changes spec))
+                      "{{dry-run}}" (str (:dry-run spec true))
+                      "{{rollback}}" (str (:rollback spec true))
+                      "{{requires}}" (pr-str (:requires spec []))
+                      "{{project}}" project}
+          cctx-content (reduce-kv str/replace cctx-template replace-map)
+          container-regex #"(?s)\{\{#container\}\}(.*?)\{\{/container\}\}"
+          non-container-regex #"(?s)\{\{\^container\}\}(.*?)\{\{/\^container\}\}"
+          process-readme (fn [content]
+                           (-> content
+                               (str/replace container-regex (if in-container "$1" ""))
+                               (str/replace non-container-regex (if in-container "" "$1"))
+                               (apply-replacements replace-map)
+                               (str/replace #"\n{3,}" "\n\n")))
+          readme-content (process-readme readme-template)
+          files #{"cctx.clj" "README.md" ".cctx-state.edn"}]
+      (when (.exists cctx-dir)
+        (if overwrite-existing
+          (delete-directory-recursive cctx-dir)
+          (throw (ex-info "CCTX already exists"
+                          {:cctx-name cctx-name
+                           :cctx-dir (.getPath cctx-dir)}))))
+      (.mkdirs cctx-dir)
+      (spit (io/file cctx-dir "cctx.clj") cctx-content)
+      (spit (io/file cctx-dir "README.md") readme-content)
+      
+      ; We no longer need to create a separate state.clj file
+      ; or initialize the state here. The CCTX will handle its own initialization.
+      )))
 
 (defn -main [& args]
   (if (< (count args) 1)
@@ -210,3 +222,44 @@
 
 (when (= *file* (System/getProperty "babashka.file"))
   (apply -main *command-line-args*))
+
+(comment
+  ;; Test loading project config
+  (def test-projects-file "/home/chip/Documents/cctx/projects.edn")
+  (def test-project-name "Catalyst")
+  (load-project-config test-projects-file test-project-name)
+
+  ;; Test loading template
+  (def test-project-config (load-project-config test-projects-file test-project-name))
+  (def test-template-name :basic)
+  (def test-template-version "v1")
+  (load-template test-project-config test-template-name test-template-version)
+
+  ;; Test creating a CCTX
+  (create-cctx! "test-cctx"
+                {:template :basic
+                 :template-version "v1"
+                 :projects test-projects-file
+                 :project test-project-name
+                 :overwrite-existing true})
+
+  ;; Test git-status-clean?
+  (git-status-clean? (:project-root test-project-config))
+
+  ;; Test command-line argument parsing
+  (cli/parse-opts ["test-cctx"
+                   "--template" "basic"
+                   "--template-version" "v1"
+                   "--projects" "/path/to/projects.edn"
+                   "--project" "Catalyst"
+                   "--overwrite-existing"]
+                  cli-opts)
+
+  ;; Run main function (comment out when not testing)
+  #_(-main "test-cctx"
+           "--template" "basic"
+           "--template-version" "v1"
+           "--projects" "/home/chip/Documents/cctx/projects.edn"
+           "--project" "Catalyst"
+           "--overwrite-existing")
+)
