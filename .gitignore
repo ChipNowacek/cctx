@@ -3,3 +3,5 @@
 .portal/
 projects.edn
 .calva/output-window/output.calva-repl
+.cpcache/
+.nrepl-port
