@@ -75,7 +75,7 @@
         new-state (apply update current-state f args)]
     (save-state! new-state)))
 
-(defn transact-change [change]
+(defn transact-change! [change]
   (case (:type change)
     :edit (println "Edit not implemented yet")
     :script (when (:executable change)
@@ -289,7 +289,7 @@
             (doseq [change (:changes change-spec)] 
               (println "Would transact:" (pr-str change)))
             (doseq [change (:changes change-spec)] 
-              (transact-change change)))
+              (transact-change! change)))
           (catch Exception e
             (println "Error during transaction. Rolling back...")
             (run-rollback-script rollback-script) 
@@ -341,7 +341,7 @@
   ;; Transaction testing
   (binding [change-spec (assoc change-spec :dry-run true)]
     (validate-and-transact!))
-  (transact-change sample-change)
+  (transact-change! sample-change)
   
   ;; Rollback testing
   (create-rollback-script)
