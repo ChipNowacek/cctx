@@ -2,11 +2,31 @@
 
 Bringing ACID to the coding experience.
 
-I cannot chase code around all the time. I need to deal with changes to the codebase in ways that don't rob me of all my time and attention. 
+## Purpose
 
-Why can't changes to the codebase be like database transactions? If the transaction doesn't do as we want, we roll it back — just like every other transaction.
+The primary purpose of a CCTX is to encourage thoughtful, structured changes to the codebase based on developer sanity, clarity, and quiet judgement. A CCTX is to the codebase what a transaction is to a database; as ACID as it can get.
 
-Maybe a CCTX is to programming what a branch is to code.
+## Workflow
+
+1. Create a CCTX:
+   ```
+   bb cctx_builder.clj <cctx-name> --template <template> --template-version <version> --projects <config-file> --project <project-name>
+   ```
+
+2. Activate a CCTX:
+   ```clojure
+   (activate-cctx!)
+   ```
+
+3. Make your changes and commit them on the CCTX branch.
+
+4. Deactivate a CCTX:
+   ```clojure
+   (deactivate-cctx!)
+   ```
+
+5. Complete a CCTX:
+   Use Git to merge the CCTX branch into your desired target branch.
 
 ## Configuration
 
@@ -88,3 +108,4 @@ Templates are validated against a schema that ensures required fields and proper
           [:rollback {:optional true} boolean?]
           [:dry-run {:optional true} boolean?]]]]]
 ```
+````
