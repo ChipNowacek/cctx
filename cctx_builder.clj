@@ -50,13 +50,15 @@
   {:coerce {:template :keyword
             :template-version :string
             :project :string
-            :overwrite-existing :boolean}
+            :overwrite-existing :boolean
+            :overwrite-force :boolean}
    :require [:template :template-version :projects :project]
    :spec {:template {:desc "Template to use"}
           :template-version {:desc "Template version"}
           :projects {:desc "Path to projects config file"}
           :project {:desc "Project name from config"}
-          :overwrite-existing {:desc "Delete existing CCTX if it exists"}}})
+          :overwrite-existing {:desc "Prompt to overwrite existing CCTX if it exists"}
+          :overwrite-force {:desc "Overwrite existing CCTX without prompting"}}})
 
 (defn find-templates-dir [project-config version]
   (let [project-root (:project-root project-config)
@@ -138,7 +140,16 @@
   (let [{:keys [exit out]} (apply sh (concat ["git" "-C" repo-path "status" "--porcelain"]))]
     (and (zero? exit) (str/blank? out))))
 
-(defn create-cctx! [cctx-name {:keys [template template-version project projects overwrite-existing] :as opts}]
+(defn branch-exists? [project-root branch-name]
+  (zero? (:exit (apply sh ["git" "-C" project-root "rev-parse" "--verify" branch-name]))))
+
+(defn prompt-overwrite [cctx-name]
+  (print (str "CCTX '" cctx-name "' already exists. Overwrite? (y/N): "))
+  (flush)
+  (let [response (read-line)]
+    (= (str/lower-case response) "y")))
+
+(defn create-cctx! [cctx-name {:keys [template template-version project projects overwrite-existing overwrite-force] :as opts}]
   (let [project-config (load-project-config projects project)
         project-root (:project-root project-config)]
     
@@ -193,20 +204,50 @@
                                (apply-replacements replace-map)
                                (str/replace #"\n{3,}" "\n\n")))
           readme-content (process-readme readme-template)
-          files #{"cctx.clj" "README.md" ".cctx-state.edn"}]
+          files #{"cctx.clj" "README.md" ".cctx-state.edn"}
+          branch-name snake-name]
       (when (.exists cctx-dir)
-        (if overwrite-existing
+        (cond
+          overwrite-force
           (delete-directory-recursive cctx-dir)
+          
+          overwrite-existing
+          (if (prompt-overwrite cctx-name)
+            (delete-directory-recursive cctx-dir)
+            (throw (ex-info "CCTX creation cancelled by user"
+                            {:cctx-name cctx-name
+                             :cctx-dir (.getPath cctx-dir)})))
+          
+          :else
           (throw (ex-info "CCTX already exists"
                           {:cctx-name cctx-name
                            :cctx-dir (.getPath cctx-dir)}))))
       
+      ; Check if branch already exists
+      (when (branch-exists? project-root branch-name)
+        (cond
+          overwrite-force
+          (println "Warning: Branch" branch-name "already exists. It will be overwritten.")
+          
+          overwrite-existing
+          (if (prompt-overwrite branch-name)
+            (println "Branch" branch-name "will be overwritten.")
+            (throw (ex-info "CCTX creation cancelled by user"
+                            {:cctx-name cctx-name
+                             :branch-name branch-name})))
+          
+          :else
+          (throw (ex-info "CCTX branch already exists"
+                          {:cctx-name cctx-name
+                           :branch-name branch-name}))))
+      
       ; Remember current branch
-      (let [current-branch (str/trim (:out (apply sh ["git" "-C" project-root "rev-parse" "--abbrev-ref" "HEAD"])))
-            branch-name (str "cctx-" snake-name)]
+      (let [current-branch (str/trim (:out (apply sh ["git" "-C" project-root "rev-parse" "--abbrev-ref" "HEAD"])))]
         
-        ; Create new branch and switch to it
-        (apply sh ["git" "-C" project-root "checkout" "-b" branch-name])
+        ; Create new branch or switch to existing one
+        (if (branch-exists? project-root branch-name)
+          (apply sh ["git" "-C" project-root "checkout" branch-name])
+          (apply sh ["git" "-C" project-root "checkout" "-b" branch-name]))
         
         ; Create CCTX files
         (.mkdirs cctx-dir)
