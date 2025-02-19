@@ -1,20 +1,55 @@
-[:map-of :keyword
- [:map
-  [:name string?]
-  [:desc string?]
-  [:spec [:map
-          [:title string?]
-          [:description string?]
-          [:changes [:sequential
-                     [:map
-                      [:id keyword?]
-                      [:type keyword?]
-                      [:description {:optional true} string?]
-                      [:path {:optional true} string?]
-                      [:template {:optional true} string?]
-                      [:executable {:optional true} boolean?]
-                      [:transform {:optional true} any?]
-                      [:validation {:optional true} any?]]]]
-          [:requires {:optional true} [:sequential keyword?]]
-          [:rollback {:optional true} boolean?]
-          [:dry-run {:optional true} boolean?]]]]]
+[
+ ; Define enums for common change types
+ ^:enum
+ {:change-type [:add-file :edit-file :remove-file :transform :script :add-dependency]}
+
+ ; Define enums for common file types
+ ^:enum
+ {:file-type [:clj :cljs :cljc :edn :md :txt :sh :bb]}
+
+ ; Define enums for common script types
+ ^:enum
+ {:script-type [:bash :babashka :python :node]}
+
+ ; Main schema definition
+ [:map-of :keyword
+  [:map
+   [:name string?]
+   [:desc string?]
+   [:spec [:map
+           [:title string?]
+           [:description string?]
+           [:prompt-md {:optional true} string?] ; Markdown prompt for AI support
+           [:changes [:sequential
+                      [:map
+                       [:id keyword?]
+                       [:type [:ref :change-type]]  ; Use the change-type enum
+                       [:description {:optional true} string?]
+                       [:prompt-md {:optional true} string?]  ; Markdown prompt for AI support
+                       [:path {:optional true} string?]
+                       [:file-name {:optional true} string?]  ; Add this line
+                       [:file-type {:optional true} [:ref :file-type]]  ; Use the file-type enum
+                       [:template {:optional true} string?]
+                       [:script-type {:optional true} [:ref :script-type]]  ; Use the script-type enum
+                       [:executable {:optional true} boolean?]
+                       [:needs-config-file {:optional true} boolean?]
+                       [:transform {:optional true} any?]
+                       [:validation {:optional true} any?]]]]
+           [:requires {:optional true} [:sequential keyword?]]
+           [:rollback {:optional true} boolean?]
+           [:dry-run {:optional true} boolean?]]]]]
+
+ ; Example usage:
+ ; {:basic
+ ;  {:name "Basic Change"
+ ;   :desc "Simple change with no predefined actions"
+ ;   :spec {:title "Example Basic Change"
+ ;          :description "This is a basic change example"
+ ;          :changes [{:id :example-change
+ ;                     :type :add-file
+ ;                     :file-type :clj
+ ;                     :path "src/example.clj"
+ ;                     :template "(ns example)\n\n(defn hello [name]\n  (str \"Hello, \" name \"!\"))\n"}]
+ ;          :rollback true
+ ;          :dry-run true}}}
+]

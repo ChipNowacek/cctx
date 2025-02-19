@@ -3,6 +3,7 @@
   :desc "Simple change with no predefined actions"
   :spec {:title ""
          :description ""
+         :prompt-md ""
          :changes []}}
  
  :transformer
@@ -10,22 +11,29 @@
   :desc "Change that transforms data with validation"
   :spec {:title ""
          :description ""
+         :prompt-md ""
          :changes [{:id :transform
-                   :type :transform
-                   :description ""
-                   :transform nil
-                   :validation nil}]}}
+                    :type :transform
+                    :description ""
+                    :prompt-md ""
+                    :transform nil
+                    :validation nil}]}}
  
  :script
  {:name "Add Script"
   :desc "Adds a new executable script to dev/scripts"
   :spec {:title ""
          :description ""
+         :prompt-md ""
          :changes [{:id :add-script
-                   :type :add-file
-                   :path "dev/scripts"
-                   :template "#!/usr/bin/env bash\n\n# Description: {{description}}\n\nset -euo pipefail\n\n# Script logic here\n"
-                   :executable true}]
+                    :type :add-file
+                    :path "dev/scripts"
+                    :file-name "{{script-name}}"
+                    :file-type :sh
+                    :script-type :bash
+                    :prompt-md ""
+                    :template "#!/usr/bin/env bash\n\n# Description: {{description}}\n\nset -euo pipefail\n\n# Script logic here\n"
+                    :executable true}]
          :requires []
          :rollback true
          :dry-run true}}
@@ -35,11 +43,43 @@
   :desc "Adds a new Babashka script to dev/scripts"
   :spec {:title ""
          :description ""
+         :prompt-md ""
          :changes [{:id :add-bb-script
-                   :type :add-file
-                   :path "dev/scripts"
-                   :template "#!/usr/bin/env bb\n\n;; Description: {{description}}\n\n(ns script\n  (:require [clojure.string :as str]\n            [clojure.java.io :as io]))\n\n(defn -main [& args]\n  ;; Script logic here\n  )\n\n(when (= *file* (System/getProperty \"babashka.file\"))\n  (apply -main *command-line-args*))\n"
-                   :executable true}]
+                    :type :add-file
+                    :path "dev/scripts"
+                    :file-name "{{script-name}}"
+                    :file-type :bb
+                    :script-type :babashka
+                    :prompt-md ""
+                    :template "#!/usr/bin/env bb\n\n;; Description: {{description}}\n\n(ns script\n  (:require [clojure.string :as str]\n            [clojure.java.io :as io]))\n\n(defn -main [& args]\n  ;; Script logic here\n  )\n\n(when (= *file* (System/getProperty \"babashka.file\"))\n  (apply -main *command-line-args*))\n"
+                    :executable true}]
+         :requires []
+         :rollback true
+         :dry-run true}}
+
+ :bb-script-with-config
+ {:name "Add Babashka Script with Config"
+  :desc "Adds a new Babashka script with a separate config file to dev/scripts"
+  :spec {:title ""
+         :description ""
+         :prompt-md ""
+         :changes [{:id :add-bb-script
+                    :type :add-file
+                    :path "dev/scripts"
+                    :file-name "{{script-name}}"
+                    :file-type :bb
+                    :script-type :babashka
+                    :prompt-md ""
+                    :template "#!/usr/bin/env bb\n\n;; Description: {{description}}\n\n(ns script\n  (:require [clojure.string :as str]\n            [clojure.java.io :as io]\n            [clojure.edn :as edn]))\n\n(def config\n  (edn/read-string (slurp \".{{script-name}}-config.edn\")))\n\n(defn -main [& args]\n  ;; Script logic here\n  (println \"Config:\" config))\n\n(when (= *file* (System/getProperty \"babashka.file\"))\n  (apply -main *command-line-args*))\n"
+                    :executable true}
+                   {:id :add-config
+                    :type :add-file
+                    :path "dev/scripts"
+                    :file-name ".{{script-name}}-config.edn"
+                    :file-type :edn
+                    :prompt-md ""
+                    :template "{:key \"value\"}\n"
+                    :needs-config-file true}]
          :requires []
          :rollback true
          :dry-run true}}
@@ -49,6 +89,7 @@
   :desc "Template that explicitly does nothing (useful for testing)"
   :spec {:title "No Change"
          :description "This change does nothing"
+         :prompt-md ""
          :changes []
          :rollback true
          :dry-run true}}}
