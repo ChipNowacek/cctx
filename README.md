@@ -8,6 +8,8 @@ The primary purpose of a CCTX is to encourage thoughtful, structured changes to 
 
 And...it's not clear if this project makes any sense. To the extent there are patterns in codebase changes, maybe we can capture them. Maybe macro-esque. Dunno.
 
+The advent of AI support just about changes everything. This project may be more about RAG-based development than anything else. The AI support may well be the last-mile transactor.
+
 ## Workflow
 
 1. Create a CCTX:
