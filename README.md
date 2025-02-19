@@ -1,10 +1,10 @@
 # Codebase Change Transaction (CCTX)
 
-Bringing ACID to the coding experience.
+Bringing ACID to the coding experience (if possible). It's not clear if this project makes any sense.
 
 ## Purpose
 
-The primary purpose of a CCTX is to encourage thoughtful, structured changes to the codebase based on developer sanity, clarity, and quiet judgement. A CCTX is to the codebase what a transaction is to a database; as ACID as it can get.
+The primary purpose of a CCTX is to encourage thoughtful, structured changes to the codebase based on developer sanity, clarity, and quiet judgement. A CCTX is to the intention of the developer what a `git commit` is to a codebase or a transaction is to a database; as ACID as it can get.
 
 ## Workflow
 
@@ -13,14 +13,14 @@ The primary purpose of a CCTX is to encourage thoughtful, structured changes to 
    bb cctx_builder.clj <cctx-name> --template <template> --template-version <version> --projects <config-file> --project <project-name>
    ```
 
-2. Activate a CCTX:
+2. Activate a CCTX: (not sure what this means yet)
    ```clojure
    (activate-cctx!)
    ```
 
 3. Make your changes and commit them on the CCTX branch.
 
-4. Deactivate a CCTX:
+4. Deactivate a CCTX: (not sure what this means yet)
    ```clojure
    (deactivate-cctx!)
    ```
