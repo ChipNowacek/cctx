@@ -200,13 +200,32 @@
           (throw (ex-info "CCTX already exists"
                           {:cctx-name cctx-name
                            :cctx-dir (.getPath cctx-dir)}))))
-      (.mkdirs cctx-dir)
-      (spit (io/file cctx-dir "cctx.clj") cctx-content)
-      (spit (io/file cctx-dir "README.md") readme-content)
       
-      ; We no longer need to create a separate state.clj file
-      ; or initialize the state here. The CCTX will handle its own initialization.
-      )))
+      ; Remember current branch
+      (let [current-branch (str/trim (:out (apply sh ["git" "-C" project-root "rev-parse" "--abbrev-ref" "HEAD"])))
+            branch-name (str "cctx-" snake-name)]
+        
+        ; Create new branch and switch to it
+        (apply sh ["git" "-C" project-root "checkout" "-b" branch-name])
+        
+        ; Create CCTX files
+        (.mkdirs cctx-dir)
+        (spit (io/file cctx-dir "cctx.clj") cctx-content)
+        (spit (io/file cctx-dir "README.md") readme-content)
+        
+        ; Add files to git
+        (apply sh ["git" "-C" project-root "add" (.getPath cctx-dir)])
+        
+        ; Stash changes
+        (let [{:keys [exit out]} (apply sh ["git" "-C" project-root "stash" "push" "-m" (str "CCTX: " cctx-name)])]
+          (if (zero? exit)
+            (println "CCTX changes stashed successfully.")
+            (println "Warning: Failed to stash CCTX changes. Exit code:" exit)))
+        
+        ; Switch back to original branch
+        (apply sh ["git" "-C" project-root "checkout" current-branch])
+        
+        (println "CCTX created and stashed on branch:" branch-name)))))
 
 (defn -main [& args]
   (if (< (count args) 1)
@@ -224,6 +243,7 @@
   (apply -main *command-line-args*))
 
 (comment
+
   ;; Test loading project config
   (def test-projects-file "/home/chip/Documents/cctx/projects.edn")
   (def test-project-name "Catalyst")
