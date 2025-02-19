@@ -160,6 +160,9 @@
       (str/replace #"[^a-zA-Z0-9-_.]" "_")
       (str/replace #"^[^a-zA-Z_]" "_")))
 
+(defn sanitize-namespace [s]
+  (str/replace s "_" "-"))
+
 (defn format-change-spec [spec]
   (letfn [(format-value [v]
             (cond
@@ -203,7 +206,8 @@
                                              :project-config project-config}))))
           tx-project-root (if in-container container-root project-root)
           tx-cctx-dir (str tx-project-root "/" cctxs-dir "/" snake-name)
-          namespace (str (str/replace cctxs-dir "/" ".") "." sanitized-name ".cctx")
+          namespace (-> (str (str/replace cctxs-dir "/" ".") "." sanitized-name ".cctx")
+                       sanitize-namespace)
           replace-map {"{{current-dir}}" tx-cctx-dir
                       "{{namespace}}" namespace
                       "{{cctx-name}}" cctx-name
