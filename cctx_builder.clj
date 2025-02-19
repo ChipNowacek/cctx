@@ -161,15 +161,15 @@
 
 (defn format-change-spec [spec]
   (letfn [(format-value [v]
-            (if (or (map? v) (vector? v))
-              (str/replace (with-out-str (clojure.pprint/pprint v)) #",$" "")
-              (pr-str v)))]
+            (cond
+              (string? v) (pr-str v)
+              (or (map? v) (vector? v))
+                (str/replace (with-out-str (clojure.pprint/pprint v)) #",\s*\n" "\n")
+              :else (pr-str v)))]
     (str "{\n"
          (str/join "\n"
                    (for [[k v] spec]
-                     (if (= k :changes)
-                       (str "  :changes\n  " (format-value v))
-                       (str "  " k " " (format-value v)))))
+                     (str "  " k " " (format-value v))))
          "\n}")))
 
 (defn create-cctx! [cctx-name {:keys [template template-version project projects overwrite-existing overwrite-force] :as opts}]
