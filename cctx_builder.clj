@@ -159,6 +159,19 @@
       (str/replace #"[^a-zA-Z0-9-_.]" "_")
       (str/replace #"^[^a-zA-Z_]" "_")))
 
+(defn format-change-spec [spec]
+  (letfn [(format-value [v]
+            (if (or (map? v) (vector? v))
+              (str/replace (with-out-str (clojure.pprint/pprint v)) #",$" "")
+              (pr-str v)))]
+    (str "{\n"
+         (str/join "\n"
+                   (for [[k v] spec]
+                     (if (= k :changes)
+                       (str "  :changes\n  " (format-value v))
+                       (str "  " k " " (format-value v)))))
+         "\n}")))
+
 (defn create-cctx! [cctx-name {:keys [template template-version project projects overwrite-existing overwrite-force] :as opts}]
   (let [project-config (load-project-config projects project)
         project-root (:project-root project-config)]
@@ -180,6 +193,7 @@
           cctx-template (slurp (io/file cctx-template-path))
           readme-template (slurp (io/file readme-template-path))
           spec (:spec template-data)
+          formatted-spec (format-change-spec spec)
           in-container (:dev-in-container? project-config)
           container-root (when in-container
                           (or (:container-project-root project-config)
@@ -198,6 +212,7 @@
                       ;; "{{project-root}}" project-root
                       ;; "{{container-project-root}}" (or container-root "")
                       "{{tx-project-root}}" tx-project-root
+                      "{{change-spec}}" formatted-spec  ; Use the formatted spec
                       "{{title}}" (pr-str (:title spec))
                       "{{description}}" (pr-str (:description spec))
                       "{{changes}}" (pr-str (:changes spec))

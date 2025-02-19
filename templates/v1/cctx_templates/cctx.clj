@@ -27,12 +27,7 @@
                        :actual env-root})))))
 
 (def change-spec
-  {:title {{title}}
-   :description {{description}}
-   :changes {{changes}}
-   :dry-run {{dry-run}}
-   :rollback {{rollback}}
-   :requires {{requires}}})
+{{change-spec}})
 
 (def cctx-state-schema
   [:map
