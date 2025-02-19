@@ -13,7 +13,11 @@
                       :must-be-boolean [:rollback :dry-run]
                       :must-be-vector [:changes :requires]}}
  :questions
- [{:date "2025-02-14T10:52:26-06:00" :author "Chip" :audience "" :audience-key nil
+ [{:date "2025-02-19T05:44:52-06:00" :author "Chip" :audience "" :audience-key nil :confidential-audience nil :confidential-author nil
+  :md "What should the `cctx/transact-change!` look like if anything?"
+  :prompt-md ""
+  :response-md ""}
+ {:date "2025-02-14T10:52:26-06:00" :author "Chip" :audience "" :audience-key nil
    :md "What is the nature of AI support required?"
    :prompt-md ""
    :response-md ""}
@@ -26,7 +30,29 @@
    :prompt-md ""
    :response-md ""}]}
 :conversation
-[{:date "2025-02-18T17:38:44-06:00" :author "Chip" :audience "Claude 3.5 Sonnet (Preview)" :audience-key :ai-ide :confidential-author nil
+[{:date "2025-02-19T05:55:44-06:00" :author "Chip" :audience "" :audience-key nil :confidential-audience nil :confidential-author nil
+ :md "The big advantage of schema in this (or maybe any) situation? The codification of questions.
+      
+      CCTX templates are more about development patterns than anything. Codebase changes will always be too complex to be fully automated. We will see what `cctx/transact-change!` looks like."
+ :prompt-md ""
+ :response-md ""}
+{:date "2025-02-19T05:42:09-06:00" :author "Chip" :audience "" :audience-key nil :confidential-audience nil :confidential-author nil
+ :md "Welcome to the world of RAG-Based Development or RAG-Based Software Engineering (SWE). Maybe RAGSWE. Or RAG-B-SWE. Or RBSE. Or RBSWE. Dunno. If I had time, I'd write an article."
+ :prompt-md ""
+ :response-md ""}
+{:date "2025-02-19T04:01:47-06:00" :author "Chip" :audience "" :audience-key nil :confidential-audience nil :confidential-author nil
+ :md ""
+ :prompt-md "Once I get the hang of git stash, we'll figure out what activate and deactivate really mean.
+
+I want to create a cctx that sorta does something. Let's add a bb script to our dev/scripts folder that can be run to clean up the codebase by deleting superfluous stuff, particularly unused k-v pairs in :conversations. 
+             
+             In your reading of our current templates and the schema file, could you please add comments and commented examples to the schema file just to see what you come up with?"
+ :response-md ""}
+{:date "2025-02-19T03:44:54-06:00" :author "Chip" :audience "" :audience-key nil :confidential-audience nil :confidential-author nil
+ :md "OMG. It's time to get a working cctx."
+ :prompt-md ""
+ :response-md ""}
+{:date "2025-02-18T17:38:44-06:00" :author "Chip" :audience "Claude 3.5 Sonnet (Preview)" :audience-key :ai-ide :confidential-author nil
  :md ""
  :prompt-md "The primary purpose of a CCTX is to encourage thoughtful, structured changes to the codebase based on developer sanity, clarity, and quiet judgement. Thinking is faster than refactoring, even if it isn't necessarily fast. In its way, a cctx is to the codebase what a transaction is to a database; as ACID as it can get.
              
@@ -270,7 +296,7 @@ Would you like me to proceed with implementing these changes? We can do it incre
 "
  :response-md ""}
 {:date "2025-02-18T03:41:29-06:00" :author "Chip" :audience "" :audience-key nil :confidential-audience nil :confidential-author nil
- :md "Branch creaton and rollback of a no-op cctx is working. It's taken a minute. We'll do real changes tomorrow. We'll see if the 5-day investment in cctx is worth it."
+ :md "Branch creation and rollback of a no-op cctx is working. It's taken a minute. We'll do real changes tomorrow. We'll see if the 5-day investment in cctx is worth it."
  :prompt-md ""
  :response-md ""}
 {:date "2025-02-17T15:54:07-06:00" :author "Chip" :audience "" :audience-key :repo-devs :confidential-audience nil :confidential-author nil
@@ -279,7 +305,7 @@ Would you like me to proceed with implementing these changes? We can do it incre
  :response-md ""}
 {:date "2025-02-17T14:39:47-06:00" :author "Chip" :audience "Claude 3.5 Sonnet (Preview)" :audience-key :ai-ide :confidential-author nil
  :md ""
- :prompt-md "I got lost in that last attempt. Let's back up. Before we attempt to implement rollback, I think we have to simplify our cctx builder iteration process. I have attached a valid generated cctx file. Starting very slowly with one replacement, what function code or placehoder can I put in the namespace that would allow the builder to take this file in one slurp, make the substitution, and generate an identical cctx with just the namespace changed? Please don't change the builder yet. I just want to play with the cctx file right now. Feel free to change the example cctx.clj file — only a little at a time though please."
+ :prompt-md "I got lost in that last attempt. Let's back up. Before we attempt to implement rollback, I think we have to simplify our cctx builder iteration process. I have attached a valid generated cctx file. Starting very slowly with one replacement, what function code or placeholder can I put in the namespace that would allow the builder to take this file in one slurp, make the substitution, and generate an identical cctx with just the namespace changed? Please don't change the builder yet. I just want to play with the cctx file right now. Feel free to change the example cctx.clj file — only a little at a time though please."
  :response-md ""}
  {:date "2025-02-17T14:23:30-06:00" :author "Chip" :audience "Claude 3.5 Sonnet (Preview)" :audience-key :ai-ide :confidential-author nil
   :md ""
@@ -511,7 +537,7 @@ Made changes."}
     12:19 PM
   Hi Chip! I saw you'd come back to being active in the community!
   I guess my first thought would be git branches, so you can work at will on a branch, and then either throw it away or merge it to the main branch -- the merge being the \"change transaction\" in my mind...
-  ...but if you're more focused on creating \"scratch\" subprojects to explore ideas, I wonder if Polylith would help? Each new mini project would be a base in Polylith language, with a project if you need to actually \"build\" something from it. Polylith has the advantage that you can have a single REPL across the entire codebase and still treat each \"sub project\" independently (from a build/deploy) p.o.v.
+  ...but if you're more focused on creating \"scratch\" sub-projects to explore ideas, I wonder if Polylith would help? Each new mini project would be a base in Polylith language, with a project if you need to actually \"build\" something from it. Polylith has the advantage that you can have a single REPL across the entire codebase and still treat each \"sub project\" independently (from a build/deploy) p.o.v.
 
 
   Chip
