@@ -1,9 +1,10 @@
- {:projects
- {:name "ProjectName" ; This is the name of the project (case-sensitive)
-  :project-root "/path/to/project/root"
-  :cctx-dir "path/to/cctx/dir/relative/to/project-root" ; Directory where project-based cctx configuration is stored (currently there isn't any)
-  :cctxs-dir "path/to/cctxs/dir/relative/to/project-root" ; Directory where cctxs are created
-  ; Project templates are searched first then the "templates" directory in the builder's current directory
-  :project-has-templates true|false
-  :project-templates-dir "path/to/templates/dir/relative/to/project-root" 
-  }}
+{:projects
+ {"ProjectName" ; This is the name of the project (case-sensitive)
+  {:name "ProjectName"
+   :project-root "/path/to/project/root"
+   :dev-in-container? true|false
+   :container-project-root "/path/in/container" ; Required if dev-in-container? is true
+   :cctx-dir "path/to/cctx/dir/relative/to/project-root"
+   :cctxs-dir "path/to/cctxs/dir/relative/to/project-root"
+   :project-has-templates true|false
+   :project-templates-dir "path/to/templates/dir/relative/to/project-root"}}}
