@@ -1,3 +1,8 @@
-{:paths ["src"]
+{:paths ["src" "resources"]
  :deps {org.clojure/clojure {:mvn/version "1.11.1"}
-        metosin/malli {:mvn/version "0.10.1"}}}
+        metosin/malli {:mvn/version "0.10.1"}}
+ 
+ :aliases
+ {:dev
+  {:extra-paths ["dev"]
+   :extra-deps {}}}}
