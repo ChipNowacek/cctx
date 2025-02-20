@@ -1,4 +1,6 @@
-# Codebase Change Transaction (CCTX)
+# Codebase Change Transaction (CCTX) - NOT CURRENTLY ACTIVE
+
+**I've paused development until I better understand the needs of the project it was conceived to support.**
 
 Bringing ACID to the coding experience (if possible). 
 
