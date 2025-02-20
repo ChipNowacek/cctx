@@ -1,0 +1,7 @@
+{:v2
+ {:no-op cctx.transactors.v2.no-op/->NoOpTransactor
+  ; Add other v2 transactors here
+  }
+
+ ; Add other versions as needed
+ }
