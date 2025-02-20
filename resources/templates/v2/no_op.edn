@@ -1,0 +1,9 @@
+{:type :no-op
+ :title "No Operation"
+ :description "This change does nothing"
+ :changes [{:id :do-nothing
+            :type :no-op
+            :description "Absolutely nothing happens"}]
+ :requires []
+ :rollback true
+ :dry-run true}
