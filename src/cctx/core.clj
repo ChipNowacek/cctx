@@ -2,7 +2,11 @@
   (:require [clojure.java.io :as io]
             [clojure.edn :as edn]
             [malli.core :as m]
-            [cctx.template-registry :as registry]))
+            [cctx.template-registry :as registry]
+            [cctx.config :as config]
+            [cctx.cli :as cli]
+            [clojure.string :as str])
+  (:gen-class))
 
 (defprotocol CCTXTransactor
   (validate [this context] "Validate the transaction")
@@ -27,4 +31,31 @@
                  :cctx-name cctx-name}]
     (when (validate transactor context)
       (transact! transactor context))))
+
+(defn -main [& args]
+  (let [{:keys [options arguments errors summary]} (cli/parse-opts args)]
+    (cond
+      (:help options)
+      (println summary)
+
+      errors
+      (do (run! println errors)
+          (System/exit 1))
+
+      (empty? arguments)
+      (do (println "Error: CCTX name is required")
+          (println summary)
+          (System/exit 1))
+
+      :else
+      (let [cctx-name (first arguments)]
+        (try
+          (let [project-config (config/load-project-config (:projects options) (:project options))]
+            (println "Creating CCTX:" cctx-name)
+            (println "Project config:" project-config)
+            ; Here you would call your create-cctx! function
+            )
+          (catch Exception e
+            (println "Error:" (.getMessage e))
+            (System/exit 1)))))))
 
