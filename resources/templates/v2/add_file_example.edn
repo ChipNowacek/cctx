@@ -1,0 +1,34 @@
+{:version :v2
+ :type :add-file
+ :title "Add Development Script"
+ :description "Adds a new development utility script"
+ :changes [{:id :add-script
+            :type :add-file
+            :path "dev/scripts/list_namespaces.clj"
+            :content ";; -*- coding: utf-8 -*-
+;; List all namespaces in the project
+(ns dev.scripts.list-namespaces
+  (:require [clojure.java.io :as io]
+            [clojure.string :as str]))
+
+(defn find-clj-files [dir]
+  (->> (file-seq (io/file dir))
+       (filter #(.isFile %))
+       (filter #(re-find #\"\\.clj$\" (.getName %)))))
+
+(defn extract-ns [file]
+  (when-let [content (slurp file)]
+    (when-let [[_ ns-name] (re-find #\"\\(ns\\s+([^\\s\\)]+)\" content)]
+      ns-name)))
+
+(defn -main [& args]
+  (let [src-dir (or (first args) \"src\")]
+    (doseq [f (find-clj-files src-dir)]
+      (when-let [ns-name (extract-ns f)]
+        (println ns-name)))))
+
+(when (= *file* (System/getProperty \"babashka.file\"))
+  (apply -main *command-line-args*))"}]
+ :requires ["babashka"]
+ :rollback true
+ :dry-run true}

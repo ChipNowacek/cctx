@@ -16,7 +16,7 @@
       slurp
       edn/read-string))
 
-(defn create-test-cctx 
+(defn create-test-cctx
   ([]
    (create-test-cctx "test-cctx" :v2 :no-op))
   ([cctx-name version type]
@@ -37,16 +37,20 @@
 (defn reload []
   (require '[user :as user] :reload))
 
-(defn show-ns 
+(defn show-ns
   ([] (show-ns 'user))
   ([ns-name]
    (sort (map (fn [sym]
                 [sym (-> (ns-resolve ns-name sym)
-                        meta
-                        :arglists)])
+                         meta
+                         :arglists)])
               (keys (ns-publics ns-name))))))
 
 (comment
+
+;; In your REPL
+  (create-test-cctx "add-script" :v2 :add-file)
+
   (print (test-cli-args "hi"))
   (show-ns)
   (reload)
@@ -65,20 +69,20 @@
   (registry/get-transactor-for-template :v2 :no-op)
 
   ;; Test CLI argument parsing
-  (test-cli-args 
+  (test-cli-args
    "test-cctx"
-   "--template" "basic" 
+   "--template" "basic"
    "--template-version" "v2"
    "--projects" test-projects-file
    "--project" test-project-name)
 
   ;; Test main function
-  (test-main 
+  (test-main
    "test-cctx"
-   "--template" "basic" 
+   "--template" "basic"
    "--template-version" "v2"
    "--projects" test-projects-file
    "--project" test-project-name)
 
     ;; Add more development helper functions and explorations here
-)
+  )

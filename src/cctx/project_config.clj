@@ -40,6 +40,13 @@
                       {:project project-name
                        :available-projects (keys (:projects config))})))))
 
+(defn tx-project-root
+  "Return the root directory for the environment of the transaction"
+  [project-config]
+  (if (:dev-in-container? project-config)
+    (:container-project-root project-config)
+    (:project-root project-config)))
+
 (comment
-  (load-project-config "resources/projects.edn" "Catalyst")
-  )
+  
+  (load-project-config "resources/projects.edn" "Catalyst"))

@@ -1,7 +1,9 @@
 {:v2
- {:no-op cctx.transactors.v2.no-op/->NoOpTransactor
-  ; Add other v2 transactors here
-  }
-
+ {:add-file cctx.transactors.v2.add-file/->AddFileTransactor
+  :no-op cctx.transactors.v2.no-op/->NoOpTransactor}
  ; Add other versions as needed
+ ; :v3 {}
  }
+
+ 
+ 
