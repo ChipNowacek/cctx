@@ -4,6 +4,7 @@
             [malli.core :as m]
             [cctx.template-registry :as registry]
             [cctx.config :as config]
+            [cctx.project-config :as project]
             [cctx.cli :as cli]
             [clojure.string :as str])
   (:gen-class))
@@ -24,13 +25,13 @@
     ; Here you would validate the spec
     spec))
 
-(defn create-cctx! [{:keys [cctx-name project-config] :as spec}]
-  (let [transactor (create-transactor spec)
-        context {:spec spec
-                 :project-config project-config
-                 :cctx-name cctx-name}]
-    (when (validate transactor context)
-      (transact! transactor context))))
+(defn create-cctx! [cctx-name opts]
+  (let [project-config (project/load-project-config (:projects opts) (:project opts))
+        project-root (:project-root project-config)
+        ; ...rest of the create-cctx! logic...
+        ]
+    ; ...existing implementation...
+    ))
 
 (defn -main [& args]
   (let [{:keys [options arguments errors summary]} (cli/parse-opts args)]
@@ -50,7 +51,7 @@
       :else
       (let [cctx-name (first arguments)]
         (try
-          (let [project-config (config/load-project-config (:projects options) (:project options))]
+          (let [project-config (project/load-project-config (:projects options) (:project options))]
             (println "Creating CCTX:" cctx-name)
             (println "Project config:" project-config)
             ; Here you would call your create-cctx! function

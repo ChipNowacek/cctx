@@ -1,6 +1,7 @@
 (ns user
   (:require [cctx.core :as core]
             [cctx.config :as config]
+            [cctx.project-config :as project]
             [cctx.template-registry :as registry]
             [cctx.cli :as cli]
             [clojure.java.io :as io]
@@ -20,12 +21,12 @@
    (create-test-cctx "test-cctx" :v2 :no-op))
   ([cctx-name version type]
    (let [config (load-test-config)
-         project-config (config/load-project-config test-projects-file test-project-name)
+         project-config (project/load-project-config test-projects-file test-project-name)
          spec {:cctx-name cctx-name
                :version version
                :type type
                :project-config project-config}]
-     (core/create-cctx! spec))))
+     (core/create-cctx! spec {}))))
 
 (defn test-cli-args [& args]
   (cli/parse-opts args))
